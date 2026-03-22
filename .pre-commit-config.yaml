@@ -1,0 +1,8 @@
+repos:
+  - repo: https://github.com/google/addlicense
+    rev: v1.1.1
+    hooks:
+      - id: addlicense
+        args:
+          - -l=mit
+          - -c=Mason Huemmer
