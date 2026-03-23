@@ -161,11 +161,63 @@ External interaction:
 - `p.Quit()` — graceful shutdown
 - `p.Println(args...)` — print above the TUI
 
+## Alt Screen
+
+In v2, alt screen is **declarative only** — set `v.AltScreen = true` on the `tea.View` returned from `View()`. There is no `tea.WithAltScreen()` program option in v2.
+
+```go
+func (m model) View() tea.View {
+    v := tea.NewView(content)
+    v.AltScreen = true
+    return v
+}
+```
+
+**Best practices:**
+- Alt screen can be toggled dynamically per render (e.g., `v.AltScreen = m.fullscreen`)
+- `p.Println`/`p.Printf` are silently discarded when alt screen is active — don't use them
+- When the app exits, BubbleTea automatically restores the original terminal buffer
+
+## Wait for WindowSizeMsg Before Rendering
+
+Never render layout-dependent views before knowing the terminal size. `View()` may be called before `WindowSizeMsg` arrives. If you render layout with default dimensions (80x24), it will overflow the real terminal when alt screen activates, causing clipping.
+
+**Pattern:** Initialize `width`/`height` to 0 and guard in `View()`:
+
+```go
+type model struct {
+    width  int  // 0 until WindowSizeMsg
+    height int  // 0 until WindowSizeMsg
+}
+
+func (m model) View() tea.View {
+    v := tea.View{AltScreen: true}
+    if m.width == 0 || m.height == 0 {
+        return v // empty until we know the size
+    }
+    v.Content = m.renderLayout()
+    return v
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    switch msg := msg.(type) {
+    case tea.WindowSizeMsg:
+        m.width = msg.Width
+        m.height = msg.Height
+        // Safe to recalculate layout now
+    }
+    // ...
+}
+```
+
+This ensures all layout calculations use real terminal dimensions.
+
 ## Common Mistakes to Avoid
 
 - Do NOT return a pointer to model — return the value: `return m, cmd`
 - Do NOT modify model fields outside of Update — the Elm architecture is message-driven
 - Do NOT block in Update — return a `Cmd` for async work
+- Do NOT render layouts before `WindowSizeMsg` — use a `ready` flag
 - Do NOT use `tea.WithAltScreen()` option — set `view.AltScreen = true` in View()
 - Do NOT use `case " ":` for space — use `case "space":` in v2
 - Do NOT use `tea.KeyMsg` for key presses — use `tea.KeyPressMsg` in v2

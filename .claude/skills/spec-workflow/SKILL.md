@@ -38,13 +38,42 @@ One paragraph describing what this feature does and why it exists.
 - What this feature explicitly does NOT do (prevents scope creep)
 ```
 
+## Plans
+
+Plans are implementation proposals that must be approved before work begins.
+
+**Directory structure:**
+```
+plans/
+├── 2026-03-22-deploy-command.md       # Active (in progress or awaiting approval)
+├── 2026-03-22-config-loading.md       # Active
+└── completed/
+    ├── 2026-03-20-project-setup.md    # Approved and done
+    └── 2026-03-21-cli-skeleton.md     # Approved and done
+```
+
+**Naming:** `YYYY-MM-DD-<short-description>.md` — datetime prefix followed by a kebab-case description.
+
+**Lifecycle:**
+1. Create the plan in `plans/` as an active plan
+2. Present to user for review and approval
+3. Only after explicit approval, begin implementation
+4. When implementation is complete and verified, move the plan to `plans/completed/`
+
+**Rules:**
+- Only approved plans are moved to `plans/completed/` — rejected or abandoned plans are deleted
+- A plan that needs revision stays in `plans/` until re-approved
+- Never implement an unapproved plan
+
 ## Workflow
 
 1. **Write the spec first** — before any code
-2. **Review the spec** — is it clear, complete, testable?
-3. **Write tests from acceptance criteria** — each criterion becomes one or more test cases
-4. **Implement to pass the tests** — the spec defines the boundary of work
-5. **Verify** — all acceptance criteria checked off
+2. **Create a plan** — write an implementation plan in `plans/YYYY-MM-DD-<description>.md`
+3. **Get approval** — present the plan to the user; do not proceed without explicit approval
+4. **Write tests from acceptance criteria** — each criterion becomes one or more test cases
+5. **Implement to pass the tests** — the spec and approved plan define the boundary of work
+6. **Verify** — all acceptance criteria checked off
+7. **Complete the plan** — move the approved plan to `plans/completed/`
 
 ## Spec-to-Code Traceability
 
