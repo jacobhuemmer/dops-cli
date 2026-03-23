@@ -120,6 +120,7 @@ Each catalog is a subdirectory under `catalogs/`. Each runbook is a subdirectory
 | `defaults.max_risk_level` | Fallback policy applied to catalogs that do not specify their own |
 | `catalogs[].name` | Display name of the catalog, used as the group header in the TUI sidebar |
 | `catalogs[].path` | Absolute path to the catalog directory on disk |
+| `catalogs[].url` | (Optional) Git repository URL for remote catalogs. When set, the metadata panel displays this URL instead of the local path |
 | `catalogs[].active` | Boolean. Only active catalogs are loaded and displayed at startup |
 | `catalogs[].policy.max_risk_level` | Ceiling on which runbooks are surfaced. Runbooks exceeding this level are filtered at load time |
 | `vars.global.<key>` | Key/value pairs available to every runbook across all catalogs |
@@ -216,15 +217,15 @@ The main view is always visible and has four regions:
 
 ### 6.2 Sidebar Tree Layout
 
-The sidebar renders catalogs and runbooks as a collapsible folder tree. All catalogs are expanded by default. Each catalog header shows an expand/collapse indicator (`▾` expanded, `▸` collapsed).
+The sidebar renders catalogs and runbooks as a collapsible folder tree. All catalogs are expanded by default. Each catalog header shows an expand/collapse indicator (`▼` expanded, `▶` collapsed). The sidebar content is inset with left padding inside the border.
 
 ```
-▾ default/
-  ├── hello-world [low]
-  └── rotate-tls-certificates [medium]
-▸ local/
-▾ public-catalog.git/
-  └── drain-node [high]
+▼ default/
+├── hello-world
+└── rotate-tls-certificates
+▶ local/
+▼ public-catalog.git/
+└── drain-node
 ```
 
 **Collapse/expand:** catalog folders can be toggled:
@@ -236,7 +237,7 @@ The sidebar renders catalogs and runbooks as a collapsible folder tree. All cata
 - **Mouse click** on a runbook selects it and updates the metadata panel
 - **Mouse hover** underlines the item under the cursor. The hover highlight clears when the user switches to keyboard navigation.
 
-**Highlight behavior:** when a runbook is highlighted, both the catalog name and the runbook leaf brighten together — the catalog header adopts the `primary` accent color and the runbook leaf uses the full `text` foreground. Unselected items render in `textMuted`. Each runbook name is followed by a colored risk badge (`[low]`, `[medium]`, `[high]`, `[critical]`).
+**Highlight behavior:** when a runbook is highlighted, both the catalog name and the runbook leaf brighten together — the catalog header adopts the `primary` accent color and the runbook leaf uses the full `text` foreground with bold styling. Unselected items render in `textMuted`. No selection indicator or risk badges are shown in the sidebar — risk level is displayed in the metadata panel.
 
 **Startup:** on launch, all catalogs are expanded and the cursor is on the first catalog header. The first runbook is auto-selected for the metadata panel — the user never sees an empty state unless there are no runbooks at all.
 
@@ -332,15 +333,17 @@ All four regions of the main view must be visually distinct bordered panels. Bor
 - Panels fill their allocated space — no dead/empty areas at the bottom of the screen
 
 **Sidebar panel requirements:**
-- Selection indicator `>` renders in `primary` color (blue), bold
-- Tree connectors (`├──`, `└──`) render in `textMuted`
-- Each runbook name is followed by a colored risk badge: `[low]` in green, `[medium]` in yellow, `[high]` in orange, `[critical]` in red
-- Background fills with `backgroundPanel`
+- Selected runbook distinguished by bold `text` style only (no `>` indicator)
+- Tree connectors (`├──`, `└──`) flush-aligned with catalog arrows (`▼`/`▶`)
+- No risk badges in sidebar — risk level shown in metadata panel only
+- No background fill — transparent background inherits terminal default
+- Left padding (1 col) inside border for content inset
 
 **Metadata panel requirements:**
-- Runbook name in `text` color, bold
-- Description in `textMuted`
-- Risk level as a colored badge (same colors as sidebar badges)
+- Layout: `Name version` on first line (name bold `text`, version `textMuted`), risk level badge on second line, blank line, description in `textMuted`, blank line, location path/URL in `textMuted`
+- Location line: for local catalogs shows path to `runbook.yaml` with OSC 8 `file://` hyperlink; for git catalogs (URL field set) shows the catalog URL with OSC 8 hyperlink
+- **Click-to-copy**: clicking the location text copies it to clipboard via OSC 52 (`tea.SetClipboard`). A "Copied to Clipboard" message in `success` color replaces the path for 2 seconds. Click target is confined to the exact text bounds (not the full line)
+- No background fill — transparent background inherits terminal default
 - Panel has its own rounded border, visually separate from the output pane below it
 
 **Output pane requirements:**
@@ -354,7 +357,7 @@ All four regions of the main view must be visually distinct bordered panels. Bor
 - Output clears when a different runbook is selected
 
 **Footer bar requirements:**
-- Full-width bar with `backgroundPanel` as background
+- Full-width bar, no background fill — transparent background
 - Keybind keys in `primary`, descriptions in `textMuted`
 - Must have consistent padding from the left edge
 
@@ -653,7 +656,7 @@ Mouse support is enabled at program initialization:
 p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 ```
 
-The model handles `tea.MouseMsg` events for clickable regions — sidebar runbook selection, output pane header and footer copy actions, and wizard form interactions delegated to Huh.
+The model handles `tea.MouseMsg` events for clickable regions — sidebar runbook selection, output pane header and footer copy actions, and wizard form interactions delegated to Huh. Mouse coordinates in BubbleTea v2 are terminal-absolute. The root app translates them to component-relative coordinates before forwarding to child models (e.g., sidebar receives content-relative coords where Y=0 is the first item row). Layout constants (`layoutMarginTop`, `layoutBorderSize`, etc.) are shared between rendering and mouse translation to keep them in sync.
 
 ```go
 type model struct {

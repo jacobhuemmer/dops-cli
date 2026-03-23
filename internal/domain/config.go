@@ -16,6 +16,7 @@ type Defaults struct {
 type Catalog struct {
 	Name   string        `json:"name"`
 	Path   string        `json:"path"`
+	URL    string        `json:"url,omitempty"`
 	Active bool          `json:"active"`
 	Policy CatalogPolicy `json:"policy"`
 }

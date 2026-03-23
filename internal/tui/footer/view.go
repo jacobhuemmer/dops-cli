@@ -59,7 +59,6 @@ func Render(state State, width int, styles *theme.Styles) string {
 	if styles != nil {
 		keyStyle = styles.Primary
 		descStyle = styles.TextMuted
-		barStyle = barStyle.Background(styles.BackgroundElem.GetForeground())
 	}
 
 	var content string

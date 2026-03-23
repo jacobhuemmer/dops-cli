@@ -234,3 +234,31 @@ func TestApp_PaletteSelect(t *testing.T) {
 		t.Error("palette should be nil after select")
 	}
 }
+
+func TestApp_MouseClickTranslation(t *testing.T) {
+	m := NewApp(testCatalogs(), testStyles())
+	m.Init()
+
+	// Send WindowSizeMsg so layout has dimensions
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	app := result.(App)
+
+	// Absolute coords for hello-world (visible index 1):
+	// Y = layoutMarginTop(3) + borderTop(1) + itemIndex(1) = 5
+	// X = layoutMarginLeft(3) + borderLeft(1) + padLeft(1) + some offset = 7
+	result, cmd := app.Update(tea.MouseClickMsg{X: 7, Y: 5, Button: tea.MouseLeft})
+	_ = result
+
+	if cmd == nil {
+		t.Fatal("click on runbook should produce a command")
+	}
+
+	msg := cmd()
+	sel, ok := msg.(sidebar.RunbookSelectedMsg)
+	if !ok {
+		t.Fatalf("expected RunbookSelectedMsg, got %T", msg)
+	}
+	if sel.Runbook.ID != "default.hello-world" {
+		t.Errorf("selected = %q, want default.hello-world", sel.Runbook.ID)
+	}
+}

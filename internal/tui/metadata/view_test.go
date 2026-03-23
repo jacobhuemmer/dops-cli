@@ -39,7 +39,8 @@ func TestRender(t *testing.T) {
 		RiskLevel:   domain.RiskLow,
 	}
 
-	out := Render(rb, 40, metadataTestStyles())
+	cat := &domain.Catalog{Name: "default", Path: "~/.dops/catalogs/default"}
+	out := Render(rb, cat, 40, false, metadataTestStyles())
 
 	if !strings.Contains(out, "hello-world") {
 		t.Error("output should contain runbook name")
@@ -53,11 +54,71 @@ func TestRender(t *testing.T) {
 	if !strings.Contains(out, "Prints a hello world message") {
 		t.Error("output should contain description")
 	}
+	if !strings.Contains(out, "runbook.yaml") {
+		t.Error("output should contain local path")
+	}
+}
+
+func TestRender_GitCatalog(t *testing.T) {
+	rb := &domain.Runbook{
+		Name:      "drain-node",
+		Version:   "2.1.0",
+		RiskLevel: domain.RiskHigh,
+	}
+	cat := &domain.Catalog{Name: "public", URL: "https://github.com/org/public-catalog"}
+	out := Render(rb, cat, 50, false, metadataTestStyles())
+
+	if !strings.Contains(out, "public-catalog") {
+		t.Error("output should contain catalog URL")
+	}
+}
+
+func TestRender_CopiedFlash(t *testing.T) {
+	rb := &domain.Runbook{
+		Name:      "hello-world",
+		Version:   "1.0.0",
+		RiskLevel: domain.RiskLow,
+	}
+	cat := &domain.Catalog{Name: "default", Path: "~/.dops/catalogs/default"}
+	out := Render(rb, cat, 40, true, metadataTestStyles())
+
+	if !strings.Contains(out, "Copied to Clipboard") {
+		t.Error("output should show copied message when flash is true")
+	}
+	if strings.Contains(out, "runbook.yaml") {
+		t.Error("output should not show path when flash is true")
+	}
 }
 
 func TestRender_Nil(t *testing.T) {
-	out := Render(nil, 40, metadataTestStyles())
+	out := Render(nil, nil, 40, false, metadataTestStyles())
 	if len(out) == 0 {
 		t.Error("nil runbook should still produce output")
 	}
+}
+
+func TestLocation(t *testing.T) {
+	rb := &domain.Runbook{Name: "hello-world"}
+
+	t.Run("local catalog", func(t *testing.T) {
+		cat := &domain.Catalog{Path: "~/.dops/catalogs/default"}
+		loc := Location(rb, cat)
+		if loc != "~/.dops/catalogs/default/hello-world/runbook.yaml" {
+			t.Errorf("got %q", loc)
+		}
+	})
+
+	t.Run("git catalog", func(t *testing.T) {
+		cat := &domain.Catalog{URL: "https://github.com/org/repo"}
+		loc := Location(rb, cat)
+		if loc != "https://github.com/org/repo" {
+			t.Errorf("got %q", loc)
+		}
+	})
+
+	t.Run("nil inputs", func(t *testing.T) {
+		if Location(nil, nil) != "" {
+			t.Error("nil inputs should return empty")
+		}
+	})
 }

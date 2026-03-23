@@ -247,8 +247,8 @@ func TestSidebar_MouseClickRunbook(t *testing.T) {
 	m.Init()
 
 	// Visible: default/ (0), hello-world (1), rotate-tls (2), local/ (3), drain-node (4)
-	// yOffset=1 (border), so Y=1 = item 0, Y=3 = item 2 (rotate-tls)
-	m, cmd := m.Update(tea.MouseClickMsg{X: 5, Y: 3, Button: tea.MouseLeft})
+	// Content-relative: Y=0 = item 0, Y=2 = item 2 (rotate-tls)
+	m, cmd := m.Update(tea.MouseClickMsg{X: 5, Y: 2, Button: tea.MouseLeft})
 
 	if m.cursor != 2 {
 		t.Errorf("cursor = %d, want 2", m.cursor)
@@ -266,15 +266,15 @@ func TestSidebar_MouseClickHeader(t *testing.T) {
 	m := New(testCatalogs(), 20, sidebarTestStyles())
 	m.Init()
 
-	// yOffset=1 (border), so Y=1 = item 0 (default/ header)
-	m, _ = m.Update(tea.MouseClickMsg{X: 5, Y: 1, Button: tea.MouseLeft})
+	// Content-relative: Y=0 = item 0 (default/ header)
+	m, _ = m.Update(tea.MouseClickMsg{X: 5, Y: 0, Button: tea.MouseLeft})
 
 	if !m.collapsed["default"] {
 		t.Error("click on header should collapse catalog")
 	}
 
 	// Click again should expand
-	m, _ = m.Update(tea.MouseClickMsg{X: 5, Y: 1, Button: tea.MouseLeft})
+	m, _ = m.Update(tea.MouseClickMsg{X: 5, Y: 0, Button: tea.MouseLeft})
 
 	if m.collapsed["default"] {
 		t.Error("second click should expand catalog")
@@ -285,8 +285,8 @@ func TestSidebar_DoubleClickExecutes(t *testing.T) {
 	m := New(testCatalogs(), 20, sidebarTestStyles())
 	m.Init()
 
-	// Single click on Y=2 (hello-world) — selects
-	m, cmd := m.Update(tea.MouseClickMsg{X: 5, Y: 2, Button: tea.MouseLeft})
+	// Single click on Y=1 (hello-world) — selects
+	m, cmd := m.Update(tea.MouseClickMsg{X: 5, Y: 1, Button: tea.MouseLeft})
 	if cmd == nil {
 		t.Fatal("single click should emit selection")
 	}
@@ -295,7 +295,7 @@ func TestSidebar_DoubleClickExecutes(t *testing.T) {
 	}
 
 	// Second click on same Y immediately — double-click executes
-	m, cmd = m.Update(tea.MouseClickMsg{X: 5, Y: 2, Button: tea.MouseLeft})
+	m, cmd = m.Update(tea.MouseClickMsg{X: 5, Y: 1, Button: tea.MouseLeft})
 	if cmd == nil {
 		t.Fatal("double click should emit a command")
 	}
@@ -313,8 +313,8 @@ func TestSidebar_MouseHover(t *testing.T) {
 	m := New(testCatalogs(), 20, sidebarTestStyles())
 	m.Init()
 
-	// Hover over Y=2 (item 1 = hello-world)
-	m, _ = m.Update(tea.MouseMotionMsg{X: 5, Y: 2})
+	// Hover over Y=1 (item 1 = hello-world)
+	m, _ = m.Update(tea.MouseMotionMsg{X: 5, Y: 1})
 
 	if m.hoverIdx != 1 {
 		t.Errorf("hoverIdx = %d, want 1", m.hoverIdx)
@@ -332,7 +332,7 @@ func TestSidebar_KeyboardClearsHover(t *testing.T) {
 	m.Init()
 
 	// Set hover
-	m, _ = m.Update(tea.MouseMotionMsg{X: 5, Y: 2})
+	m, _ = m.Update(tea.MouseMotionMsg{X: 5, Y: 1})
 	if m.hoverIdx != 1 {
 		t.Fatal("hover should be set")
 	}
@@ -371,16 +371,16 @@ func TestSidebar_ViewShowsCollapseIndicator(t *testing.T) {
 	m.Init()
 
 	view := m.View()
-	if !containsStr(view, "▾") {
-		t.Error("expanded catalog should show ▾")
+	if !containsStr(view, "▼") {
+		t.Error("expanded catalog should show ▼")
 	}
 
 	m, _ = pressKey(m, "up")    // → default/ header
 	m, _ = pressKey(m, "enter") // collapse default/
 
 	view = m.View()
-	if !containsStr(view, "▸") {
-		t.Error("collapsed catalog should show ▸")
+	if !containsStr(view, "▶") {
+		t.Error("collapsed catalog should show ▶")
 	}
 }
 

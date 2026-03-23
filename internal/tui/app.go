@@ -35,6 +35,14 @@ const (
 	statePalette
 )
 
+// Layout constants shared between rendering and mouse translation.
+const (
+	layoutMarginLeft = 3
+	layoutMarginTop  = 3
+	layoutBorderSize = 1 // one side of a rounded border
+	layoutPadLeft    = 1 // sidebar content left padding
+)
+
 type executionResultMsg struct {
 	Lines   []output.OutputLineMsg
 	LogPath string
@@ -50,17 +58,20 @@ type AppDeps struct {
 	AltScreen bool
 }
 
+type copiedFlashMsg struct{}
+
 type App struct {
-	sidebar  sidebar.Model
-	output   output.Model
-	wizard   *wizard.Model
-	pal      *palette.Model
-	selected *domain.Runbook
-	selCat   *domain.Catalog
-	deps     AppDeps
-	state    viewState
-	width    int
-	height   int
+	sidebar     sidebar.Model
+	output      output.Model
+	wizard      *wizard.Model
+	pal         *palette.Model
+	selected    *domain.Runbook
+	selCat      *domain.Catalog
+	deps        AppDeps
+	state       viewState
+	width       int
+	height      int
+	copiedFlash bool // show "Copied to Clipboard" in metadata
 }
 
 func NewApp(catalogs []catalog.CatalogWithRunbooks, styles *theme.Styles) App {
@@ -160,13 +171,33 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = stateNormal
 		m.pal = nil
 		return m, nil
+
+	case copiedFlashMsg:
+		m.copiedFlash = false
+		return m, nil
 	}
 
 	// Route to focused component
 	switch m.state {
 	case stateNormal:
+		// Check for metadata click first
+		if isMouseClick(msg) {
+			if loc, cmd := m.handleMetadataClick(msg); cmd != nil {
+				m.copiedFlash = true
+				_ = loc
+				return m, cmd
+			}
+		}
+
+		translated, inSidebar := m.translateMouseForSidebar(msg)
+		if !inSidebar {
+			// Mouse event outside sidebar — don't forward
+			if isMouseMsg(msg) {
+				return m, nil
+			}
+		}
 		var cmd tea.Cmd
-		m.sidebar, cmd = m.sidebar.Update(msg)
+		m.sidebar, cmd = m.sidebar.Update(translated)
 		return m, cmd
 
 	case stateWizard:
@@ -323,37 +354,32 @@ func (m App) View() tea.View {
 }
 
 func (m App) viewNormal() tea.View {
-	// --- Layout variables ---
-	marginLeft := 3 // space from left terminal edge
-	marginTop  := 3 // space from top terminal edge
+	// --- Layout variables (derived from package-level constants) ---
 	footerH    := 1 // footer height
 	gap        := 1 // space between sidebar and right panel
-	borderSize := 2 // top + bottom (or left + right) border chars
+	borderSize := layoutBorderSize * 2 // top + bottom (or left + right)
 
 	// --- Dimension budget ---
-	innerW    := clamp(m.width - marginLeft, 1)
+	innerW    := clamp(m.width - layoutMarginLeft, 1)
 	sw        := sidebarWidth(innerW)
 	rightW    := clamp(innerW - sw - borderSize - gap, 1)
 	contentW  := clamp(rightW - borderSize, 1) // content width inside bordered panels
-	panelRows := clamp(m.height - marginTop - footerH - marginLeft, 1)
+	panelRows := clamp(m.height - layoutMarginTop - footerH - layoutMarginLeft, 1)
 
 	// --- Theme colors ---
 	var borderColor color.Color = lipgloss.NoColor{}
-	var panelBg color.Color = lipgloss.NoColor{}
 	if m.deps.Styles != nil {
 		borderColor = m.deps.Styles.Border.GetForeground()
-		panelBg = m.deps.Styles.BackgroundPanel.GetForeground()
 	}
 
 	// --- Sidebar: anchor panel ---
 	sidebarContentH := clamp(panelRows - borderSize - 1, 3) // -1 accounts for border rendering offset
 	m.sidebar.SetHeight(sidebarContentH)
-	m.sidebar.SetYOffset(1)
 
 	sidebarView := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(borderColor).
-		Background(panelBg).
+		PaddingLeft(1).
 		Width(sw).
 		Height(sidebarContentH).
 		Render(m.sidebar.View())
@@ -361,11 +387,10 @@ func (m App) viewNormal() tea.View {
 	sidebarRenderedH := lipgloss.Height(sidebarView)
 
 	// --- Metadata: bordered, auto-height ---
-	metaContent := metadata.Render(m.selected, contentW, m.deps.Styles)
+	metaContent := metadata.Render(m.selected, m.selCat, contentW, m.copiedFlash, m.deps.Styles)
 	metaView := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(borderColor).
-		Background(panelBg).
 		Width(contentW).
 		Render(metaContent)
 
@@ -379,8 +404,8 @@ func (m App) viewNormal() tea.View {
 	rightPanel := lipgloss.JoinVertical(lipgloss.Left, metaView, outputView)
 
 	body := lipgloss.NewStyle().
-		MarginLeft(marginLeft).
-		MarginTop(marginTop).
+		MarginLeft(layoutMarginLeft).
+		MarginTop(layoutMarginTop).
 		Render(lipgloss.JoinHorizontal(lipgloss.Top,
 			sidebarView,
 			strings.Repeat(" ", gap),
@@ -389,8 +414,8 @@ func (m App) viewNormal() tea.View {
 
 	// --- Footer ---
 	footerView := lipgloss.NewStyle().
-		MarginLeft(marginLeft - 1).
-		Render(footer.Render(appFooterState(m.state), m.width-marginLeft, m.deps.Styles))
+		MarginLeft(layoutMarginLeft - 1).
+		Render(footer.Render(appFooterState(m.state), m.width-layoutMarginLeft, m.deps.Styles))
 
 	// --- Outer container: enforce exact terminal dimensions ---
 	content := lipgloss.JoinVertical(lipgloss.Left, body, footerView)
@@ -466,6 +491,104 @@ func sidebarWidth(totalWidth int) int {
 		w = 50
 	}
 	return w
+}
+
+// translateMouseForSidebar converts terminal-absolute mouse coordinates to
+// sidebar content-relative coordinates (Y=0 is the first item row).
+// Returns the translated message and whether the click was within the sidebar bounds.
+func (m App) translateMouseForSidebar(msg tea.Msg) (tea.Msg, bool) {
+	originY := layoutMarginTop + layoutBorderSize
+	originX := layoutMarginLeft + layoutBorderSize + layoutPadLeft
+	innerW := clamp(m.width-layoutMarginLeft, 1)
+	sw := sidebarWidth(innerW) + layoutBorderSize*2 + layoutPadLeft // total sidebar width including border+pad
+
+	switch msg := msg.(type) {
+	case tea.MouseClickMsg:
+		inBounds := msg.X >= layoutMarginLeft && msg.X < layoutMarginLeft+sw &&
+			msg.Y >= layoutMarginTop && msg.Y < m.height
+		msg.X -= originX
+		msg.Y -= originY
+		return msg, inBounds
+	case tea.MouseMotionMsg:
+		inBounds := msg.X >= layoutMarginLeft && msg.X < layoutMarginLeft+sw &&
+			msg.Y >= layoutMarginTop && msg.Y < m.height
+		msg.X -= originX
+		msg.Y -= originY
+		return msg, inBounds
+	}
+	return msg, true
+}
+
+func isMouseMsg(msg tea.Msg) bool {
+	switch msg.(type) {
+	case tea.MouseClickMsg, tea.MouseMotionMsg:
+		return true
+	}
+	return false
+}
+
+func isMouseClick(msg tea.Msg) bool {
+	_, ok := msg.(tea.MouseClickMsg)
+	return ok
+}
+
+// handleMetadataClick checks if a mouse click landed on the path/URL line
+// in the metadata panel. If so, returns the location string and a cmd to copy it.
+func (m App) handleMetadataClick(msg tea.Msg) (string, tea.Cmd) {
+	click, ok := msg.(tea.MouseClickMsg)
+	if !ok {
+		return "", nil
+	}
+
+	location := metadata.Location(m.selected, m.selCat)
+	if location == "" {
+		return "", nil
+	}
+
+	// Replicate viewNormal layout to get exact pixel positions
+	innerW := clamp(m.width-layoutMarginLeft, 1)
+	sw := sidebarWidth(innerW)
+	gap := 1
+	borderSize := layoutBorderSize * 2
+	rightW := clamp(innerW-sw-borderSize-gap, 1)
+	contentW := clamp(rightW-borderSize, 1)
+
+	// Render sidebar to measure its actual width
+	sidebarView := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		PaddingLeft(layoutPadLeft).
+		Width(sw).
+		Render("")
+	sidebarRenderedW := lipgloss.Width(sidebarView)
+
+	// Render metadata to measure its actual height
+	metaContent := metadata.Render(m.selected, m.selCat, contentW, false, m.deps.Styles)
+	metaView := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		Width(contentW).
+		Render(metaContent)
+	metaH := lipgloss.Height(metaView)
+
+	metaYStart := layoutMarginTop
+	// Path is the last content line before bottom border
+	pathLineY := metaYStart + metaH - layoutBorderSize - 1
+	if click.Y != pathLineY {
+		return "", nil
+	}
+
+	// Path text X: marginLeft + sidebar width + gap + metadata border left + leading space
+	pathXStart := layoutMarginLeft + sidebarRenderedW + gap + layoutBorderSize + 1
+	pathXEnd := pathXStart + len(location)
+	if click.X < pathXStart || click.X >= pathXEnd {
+		return "", nil
+	}
+
+	return location, tea.Batch(
+		tea.SetClipboard(location),
+		tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+			return copiedFlashMsg{}
+		}),
+	)
 }
 
 func appFooterState(s viewState) footer.State {

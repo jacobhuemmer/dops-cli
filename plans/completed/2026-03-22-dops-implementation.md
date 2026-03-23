@@ -421,25 +421,31 @@ Write tests first in this sequence (red → green → refactor for each):
 
 3. **`tui/sidebar/model.go`** — separate model, accepts `*theme.Styles`:
    - Panel wrapped in `lipgloss.RoundedBorder()` with `border` color, `borderActive` when focused
-   - `backgroundPanel` as background fill
-   - **Collapsible catalogs:** `▾`/`▸` indicators on catalog headers, `←`/`→` to collapse/expand, `Enter`/`Space` toggles
+   - No background fill — transparent background inherits terminal default
+   - Left padding (1 col) inside border for content inset
+   - **Collapsible catalogs:** `▼`/`▶` indicators on catalog headers, `←`/`→` to collapse/expand, `Enter`/`Space` toggles
    - `←` on a runbook jumps cursor to parent catalog header
    - **Mouse click** on header toggles collapse/expand, click on runbook selects it
    - **Mouse hover** highlights item under cursor with underline (`styles.Text.Underline`), clears on keyboard input
-   - Mouse Y coordinates adjusted by `yOffset` (1 for border top row) via `mouseToIdx()` to correctly map terminal coordinates to visible items
+   - Mouse coordinates translated from terminal-absolute to content-relative by the app (`translateMouseForSidebar`) before forwarding; sidebar `mouseToIdx()` uses `y + scrollOffset` directly
    - Mouse enabled via `view.MouseMode = tea.MouseModeCellMotion` (v2 declarative)
    - Cursor navigates all visible items (headers + runbooks), not just runbooks
    - `Enter` on a runbook emits `RunbookExecuteMsg` (triggers wizard/execution)
    - `Enter` on a header toggles collapse/expand
-   - Selection indicator `>` in `primary` color, bold
+   - No selection indicator — selected runbook distinguished by bold `text` style only
    - Catalog headers: `primary` when selected, `textMuted` otherwise
    - Runbook names: `text` when selected (bold), `textMuted` otherwise
-   - Risk badge after each runbook name: `[low]`, `[medium]`, `[high]`, `[critical]` in risk colors
-   - Tree connectors (`├──`, `└──`) in `textMuted`
+   - No risk badges in sidebar — risk level shown in metadata panel only
+   - Tree connectors (`├──`, `└──`) flush-aligned with catalog arrows
 
-4. **`tui/metadata/view.go`** — stateless, accepts `*theme.Styles`:
-   - Own rounded border panel, visually separate from output below
-   - Name: `text` bold. Description: `textMuted`. Risk: colored badge. ID and version: `textMuted` labels
+4. **`tui/metadata/view.go`** — stateless render function, accepts `*theme.Styles`:
+   - Own rounded border panel, no background fill — transparent background
+   - Layout: `Name version` (bold + muted), risk badge, blank, description, blank, location path/URL
+   - `Location(rb, cat)` helper returns raw path or URL string
+   - Local catalogs: path to `runbook.yaml` with OSC 8 `file://` hyperlink
+   - Git catalogs (URL field set): catalog URL with OSC 8 hyperlink
+   - `Render` accepts `copied bool` — when true, replaces location line with `"Copied to Clipboard"` in `success` color
+   - **Click-to-copy**: app detects clicks on the path/URL text (exact character bounds), copies to clipboard via `tea.SetClipboard` (OSC 52), shows flash for 2 seconds
    - Auto-height (6-8 lines based on content)
 
 5. **`tui/output/model.go`** — separate model, accepts `*theme.Styles`:
@@ -450,7 +456,7 @@ Write tests first in this sequence (red → green → refactor for each):
    - Placeholder when no execution: centered `"Press enter to run a runbook"` in `textMuted`
 
 6. **`tui/footer/view.go`** — stateless, accepts `*theme.Styles`:
-   - Full-width, `backgroundPanel` background
+   - Full-width, no background fill — transparent background
    - Keybind keys in `primary`, descriptions in `textMuted`
    - Consistent left padding
 
@@ -471,9 +477,10 @@ Write tests first in this sequence (red → green → refactor for each):
 
 ### Acceptance Criteria
 - [ ] Theme `border` token maps to `fgMuted` — borders are clearly visible
-- [ ] Sidebar panel has rounded border, `backgroundPanel` fill, risk badges on each runbook
-- [ ] Selection indicator `>` is `primary` color and bold
-- [ ] Metadata panel has its own rounded border, visually separate from output
+- [ ] Sidebar panel has rounded border, no background fill, left padding, no risk badges
+- [ ] Catalog arrows use `▼`/`▶`, tree connectors flush-aligned with arrows
+- [ ] Selected runbook distinguished by bold style only (no `>` indicator)
+- [ ] Metadata panel has its own rounded border, no background fill, visually separate from output
 - [ ] Output pane header has visible `backgroundElement` fill with readable command text
 - [ ] Output pane body fills remaining vertical space — no dead area
 - [ ] Output pane footer has visible `backgroundElement` fill with readable log path

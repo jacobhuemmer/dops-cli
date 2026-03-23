@@ -27,7 +27,6 @@ type Model struct {
 	lastClickAt time.Time       // time of last click
 	height      int
 	offset      int
-	yOffset     int             // Y offset from terminal top (accounts for border)
 	searching   bool
 	searchQuery string
 	styles      *theme.Styles
@@ -64,17 +63,12 @@ func New(catalogs []catalog.CatalogWithRunbooks, height int, styles *theme.Style
 		cursor:    firstRB,
 		hoverIdx:  -1,
 		height:    height,
-		yOffset:   1, // default: 1 row for top border
 		styles:    styles,
 	}
 }
 
 func (m *Model) SetHeight(h int) {
 	m.height = h
-}
-
-func (m *Model) SetYOffset(y int) {
-	m.yOffset = y
 }
 
 func (m Model) Init() tea.Cmd {
@@ -108,9 +102,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) mouseToIdx(y int) int {
-	// Translate terminal Y to visible item index
-	// Subtract yOffset (border top row) and add scroll offset
-	return y - m.yOffset + m.offset
+	// Y is content-relative (0 = first item row), translated by the app
+	return y + m.offset
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
@@ -457,9 +450,9 @@ func (m Model) buildLines(vis []int) []string {
 		isHovered := idx == hoveredIdx && idx != selectedIdx
 
 		if e.isHeader {
-			indicator := "▾"
+			indicator := "▼"
 			if m.collapsed[e.catalog.Name] {
-				indicator = "▸"
+				indicator = "▶"
 			}
 			label := indicator + " " + e.catalog.Name + "/"
 
@@ -481,15 +474,13 @@ func (m Model) buildLines(vis []int) []string {
 				connector = "└── "
 			}
 
-			badge := m.riskBadge(e.runbook.RiskLevel)
-
 			switch {
 			case idx == selectedIdx:
-				lines = append(lines, cursorStyle.Render("> ")+selectedStyle.Render(connector+e.runbook.Name)+" "+badge)
+				lines = append(lines, selectedStyle.Render(connector+e.runbook.Name))
 			case isHovered:
-				lines = append(lines, hoverStyle.Render("  "+connector+e.runbook.Name)+" "+badge)
+				lines = append(lines, hoverStyle.Render(connector+e.runbook.Name))
 			default:
-				lines = append(lines, unselectedStyle.Render("  "+connector+e.runbook.Name)+" "+badge)
+				lines = append(lines, unselectedStyle.Render(connector+e.runbook.Name))
 			}
 		}
 
@@ -563,24 +554,6 @@ func (m Model) selectionCmd() tea.Cmd {
 	}
 }
 
-func (m Model) riskBadge(level domain.RiskLevel) string {
-	label := "[" + string(level) + "]"
-	if m.styles == nil {
-		return label
-	}
-	switch level {
-	case domain.RiskLow:
-		return m.styles.RiskLow.Render(label)
-	case domain.RiskMedium:
-		return m.styles.RiskMedium.Render(label)
-	case domain.RiskHigh:
-		return m.styles.RiskHigh.Render(label)
-	case domain.RiskCritical:
-		return m.styles.RiskCritical.Render(label)
-	default:
-		return label
-	}
-}
 
 func (m Model) visibleRunbooks() []domain.Runbook {
 	vis := m.visible()
