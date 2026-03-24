@@ -285,25 +285,33 @@ The wizard layout mirrors the output pane — a header above the form body, both
 
 ### 6.4 Output Pane
 
-The output pane has three distinct regions, as shown in the wireframe diagram (`tui-layout.png`):
+The output pane renders inside a persistent outer `RoundedBorder` (applied by the app). Inside, three flat content sections are stacked vertically with gaps and padding:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ $ dops run <id> --param hello=world               │  ← header
-├─────────────────────────────────────────────────────────────┤
-│ hello, world!                                                │
-│                                                              │  ← body
-│                                                              │
-├─────────────────────────────────────────────────────────────┤
-│ Saved to /tmp/2026.01.01-010102-default-hello-world.log      │  ← footer
-└─────────────────────────────────────────────────────────────┘
+╭──────────────────────────────────────────────────────╮
+│                                                      │
+│  $ dops run <id> --param hello=world                 │  ← header (1 row)
+│                                                      │  ← gap (1 row)
+│  ┌────────────────────────────────────────────────┐  │
+│  │  hello, world!                              ▐  │  │  ← log body
+│  │  [stderr] error occurred                       │  │    (backgroundElement fill)
+│  │                                                │  │    (scrollbar on right)
+│  └────────────────────────────────────────────────┘  │
+│                                                      │  ← gap (1 row)
+│  Saved to /tmp/2026.01.01-default-hello.log          │  ← footer (1 row)
+│                                                      │
+╰──────────────────────────────────────────────────────╯
 ```
 
-**Header** — displays the full command that was executed, formatted as a shell invocation. Clicking it copies the command to the clipboard, allowing the user to re-run it outside of dops.
+**Architecture:** The output model (`internal/tui/output/model.go`) returns flat styled content (no borders). The app wraps it in the outer border with `Width`, `Height`, and focus-aware `BorderForeground`. The output receives content dimensions (inside the border) via `ViewWithSize()`.
 
-**Body** — streams stdout and stderr live as the script runs. stderr is rendered in the `error` theme color to distinguish it from normal output.
+**Header** — 1 row displaying `$ <command>`, truncated to fit. `$` in `success` color, command text in `text` color. Clicking copies the command to clipboard. When copied, shows "Copied to Clipboard" in `success` for 2 seconds.
 
-**Footer** — displays the path to the saved log file once execution completes. Clicking the footer copies the log path to the clipboard.
+**Log body** — Streams stdout and stderr live as the script runs. Uses `backgroundElement` background fill that extends edge-to-edge on every row. stderr rendered in `error` color. Content confined within the pane — text never overflows or pushes other sections. 1-row top padding inside the log area pushes content down.
+
+**Footer** — 1 row displaying `Saved to <path>` in `textMuted` once execution completes. Clicking copies the log path to clipboard.
+
+**Spacing:** 1-row gap between header and log body, 1-row gap between log body and footer. 1-character left/right padding across all sections.
 
 **Log filename format:**
 
@@ -311,17 +319,29 @@ The output pane has three distinct regions, as shown in the wireframe diagram (`
 /tmp/YYYY.MM.DD-HHmmss-<catalog>-<runbook>.log
 ```
 
-Example: `/tmp/2026.01.01-010102-default-hello-world.log`
+**Live streaming:** Execution output is streamed per-line via `tea.Program.Send()` from a background goroutine. Each `OutputLineMsg` triggers an `Update` cycle so the TUI updates in real-time. The executor uses `io.Pipe()` for immediate line delivery without OS pipe buffering. Buffered log writer (64KB `bufio.Writer`) writes lines to disk in parallel.
 
-**Scrollbar:** a vertical scrollbar is rendered on the right edge of the output body when the content exceeds the visible height. Scrolls one line at a time via arrow keys or mouse wheel.
+**Scroll confinement:** Uses `bubbles/v2/viewport.Model` purely for scroll state tracking (`YOffset`, `GotoBottom`, `TotalLineCount`). The custom `View()` reads `YOffset()` and renders only `lines[yOffset..yOffset+visibleH]`. Content never exceeds the visible area. Supports Up/Down/j/k/PgUp/PgDown/Home/End/mouse wheel natively via the viewport's `Update()`.
 
-**Search:** activated by typing `/` while the output pane has focus. A search input appears at the bottom of the output body. As the user types, all matching occurrences in the stdout/stderr buffer are highlighted in place — the content is not filtered, matches are highlighted inline. Pressing `Enter` confirms the search and enters navigation mode:
+**Auto-scroll:** Tracks `atBottom` flag. When true, new lines auto-scroll to bottom via `GotoBottom()`. Set false when user scrolls up. Re-enables when user scrolls to the actual bottom.
+
+**Horizontal scrolling:** `h`/`l` keys scroll 8 columns. Uses `ansi.Cut()` for ANSI-aware line slicing. Clamped to `[0, maxLineWidth - textWidth]`.
+
+**Scrollbar:** Proportional thumb on the right edge of the log area. Thumb height = `max(1, (contentH²)/totalLines)`. Thumb uses `primary` foreground on `backgroundElement` background (`▐` character). Track is invisible (space with `backgroundElement` background).
+
+**ANSI handling:** All text operations use `charmbracelet/x/ansi` — `StringWidth()`, `Cut()`, `Truncate()`, `Strip()`. Carriage returns (`\r`) stripped from each line to prevent CI progress bar rendering issues.
+
+**Search:** activated by typing `/` while the output pane has focus. A search input appears at the bottom of the log body. As the user types, all matching occurrences are highlighted inline. Pressing `Enter` confirms the search and enters navigation mode:
 
 - The status line shows the current match position and total count, e.g. `[2/7]`
 - `n` moves to the next match downward
 - `N` moves to the previous match upward
 - The view scrolls automatically to keep the current match visible
 - `Escape` exits search mode and clears all highlights
+
+**Focus management:** Tab cycles between sidebar and output pane. Hovering the mouse over the output pane auto-focuses it for immediate scrolling. Clicking in the sidebar steals focus back. The focused pane's outer border uses `borderActive` color.
+
+**Output preservation:** Output is NOT cleared when browsing runbooks in the sidebar. The last execution stays visible until a new execution starts.
 
 ### 6.5 Visual Requirements
 
@@ -347,14 +367,20 @@ All four regions of the main view must be visually distinct bordered panels. Bor
 - Panel has its own rounded border, visually separate from the output pane below it
 
 **Output pane requirements:**
-- Header sub-region has `backgroundElement` as background fill — must be visibly different from the body
-- The `$ dops run ...` command text must be readable (use `text` foreground on `backgroundElement` background)
-- Body uses default `background`
-- stderr lines in `error` color
-- Footer sub-region has `backgroundElement` as background fill
-- Log path text in `textMuted` — must be readable
-- When no execution has occurred, show a centered placeholder: `"Press enter to run a runbook"`
-- Output clears when a different runbook is selected
+- Persistent outer `RoundedBorder` applied by the app — always visible, even when no session is active
+- Focus indicator: outer border uses `borderActive` when focused, `border` when not
+- Header: 1 row, `$` in `success` + command in `text`, truncated to fit
+- Log body: `backgroundElement` background fill extending edge-to-edge on every row, with 2-char indent per line
+- 1-row top padding inside log body, 1-row gaps between header/log and log/footer
+- 1-char left/right padding across all sections
+- stderr lines in `error` color on `backgroundElement` background
+- Footer: 1 row, log path in `textMuted`
+- Scrollbar: `primary` foreground thumb (`▐`) on `backgroundElement` background, right edge of log body
+- When no execution has occurred, the pane is empty (no placeholder text)
+- Output is NOT cleared when browsing runbooks — persists until next execution
+- Hover over output pane auto-focuses it for scrolling; click in sidebar steals focus back
+- Terminal background color set from theme `background` token via `View.BackgroundColor`
+- Layout includes `layoutMarginBottom = 4` rows of space below panels
 
 **Footer bar requirements:**
 - Full-width bar, no background fill — transparent background
