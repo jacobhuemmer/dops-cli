@@ -86,8 +86,9 @@ func (m *Model) SetCommand(cmd string) {
 	m.resizeViewport()
 }
 
-func (m Model) Command() string       { return m.command }
+func (m Model) Command() string        { return m.command }
 func (m Model) LogPath() string        { return m.logPath }
+func (m Model) CopyFlash() bool        { return m.copyFlash }
 func (m *Model) SetCopiedHeader(v bool) { m.copiedHeader = v }
 func (m *Model) SetCopiedFooter(v bool) { m.copiedFooter = v }
 
@@ -487,30 +488,7 @@ func (m Model) View() string {
 
 	logLines := make([]string, 0, logH+logTopPad)
 	logLines = append(logLines, blankLine) // top padding — always present
-
-	// Badge on the first content row (right-aligned), replaces 1 log line temporarily.
-	var badgeLine string
-	if m.copyFlash {
-		badgeText := "Copied to Clipboard!"
-		badge := lipgloss.NewStyle().
-			Background(bgElemColor).
-			Foreground(successFg).
-			Render(badgeText)
-		badgeW := ansi.StringWidth(badge)
-		rightPad := 1
-		pad := logW - badgeW - rightPad
-		if pad > 0 {
-			badgeLine = logContentStyle.Render(strings.Repeat(" ", pad)) + badge + logContentStyle.Render(" ")
-		} else {
-			badgeLine = badge
-		}
-	}
 	for i := range visibleH {
-		// First row: show badge if active (overlays the first log line).
-		if i == 0 && badgeLine != "" {
-			logLines = append(logLines, badgeLine)
-			continue
-		}
 		idx := yOffset + i
 		if idx < len(m.lines) {
 			line := m.lines[idx]

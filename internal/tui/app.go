@@ -28,6 +28,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type viewState int
@@ -625,6 +626,11 @@ func (m App) viewNormal() tea.View {
 		Height(outputTotalH).
 		Render(m.output.ViewWithSize(outputInnerW, outputContentH))
 
+	// Inject "Copied to Clipboard!" badge into the top border row.
+	if m.output.CopyFlash() {
+		outputView = injectBorderBadge(outputView, "Copied to Clipboard!", m.deps.Styles)
+	}
+
 	// --- Compose panels ---
 	rightPanel := lipgloss.JoinVertical(lipgloss.Left, metaView, outputView)
 
@@ -782,6 +788,40 @@ func (m App) translateMouseForOutput(msg tea.Msg) tea.Msg {
 		return msg
 	}
 	return msg
+}
+
+// injectBorderBadge replaces part of the top border row with a styled badge.
+// The badge appears near the right end: ╭─── Copied to Clipboard! ──╮
+func injectBorderBadge(rendered, text string, styles *theme.Styles) string {
+	lines := strings.Split(rendered, "\n")
+	if len(lines) == 0 {
+		return rendered
+	}
+
+	topLine := lines[0]
+	topWidth := lipgloss.Width(topLine)
+
+	// Style the badge text.
+	badgeStyle := lipgloss.NewStyle()
+	if styles != nil {
+		badgeStyle = styles.Success
+	}
+	badge := " " + badgeStyle.Render(text) + " "
+	badgeW := lipgloss.Width(badge)
+
+	// Place badge near the right end (2 chars from right for the corner + margin).
+	rightMargin := 3
+	insertAt := topWidth - badgeW - rightMargin
+	if insertAt < 2 {
+		return rendered // not enough space
+	}
+
+	// Rebuild the top line: keep left portion, insert badge, keep right portion.
+	left := ansi.Cut(topLine, 0, insertAt)
+	right := ansi.Cut(topLine, insertAt+badgeW, topWidth)
+	lines[0] = left + badge + right
+
+	return strings.Join(lines, "\n")
 }
 
 func sidebarWidth(totalWidth int) int {
