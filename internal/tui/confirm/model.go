@@ -60,8 +60,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 
 		default:
-			if m.risk == domain.RiskMedium {
-				// y/N single key confirmation
+			if m.risk == domain.RiskHigh {
+				// High: y/N single key confirmation.
 				if msg.Text == "y" || msg.Text == "Y" {
 					return m, func() tea.Msg {
 						return ConfirmAcceptMsg{
@@ -75,7 +75,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					return m, func() tea.Msg { return ConfirmCancelMsg{} }
 				}
 			} else if msg.Text != "" {
-				// High/Critical: accumulate typed input
+				// Critical: accumulate typed input.
 				m.input += msg.Text
 			}
 		}
@@ -85,12 +85,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 func (m Model) isConfirmed() bool {
 	switch m.risk {
-	case domain.RiskMedium:
-		return false // medium uses y/N, not Enter
 	case domain.RiskHigh:
-		return strings.TrimSpace(m.input) == m.runbook.ID
+		return false // high uses y/N, not Enter
 	case domain.RiskCritical:
-		return strings.TrimSpace(m.input) == "CONFIRM"
+		return strings.TrimSpace(m.input) == m.runbook.ID
 	default:
 		return true
 	}
@@ -108,10 +106,8 @@ func (m Model) View() string {
 	riskLabel := strings.ToUpper(string(m.risk))
 	var riskStyle lipgloss.Style
 	switch m.risk {
-	case domain.RiskMedium:
-		riskStyle = warningFg
 	case domain.RiskHigh:
-		riskStyle = errorFg
+		riskStyle = warningFg
 	case domain.RiskCritical:
 		riskStyle = errorFg.Bold(true)
 	default:
@@ -131,15 +127,11 @@ func (m Model) View() string {
 	lines = append(lines, "")
 
 	switch m.risk {
-	case domain.RiskMedium:
-		lines = append(lines, textFg.Render("  Confirm execution? (y/N)"))
 	case domain.RiskHigh:
-		lines = append(lines, textFg.Render(fmt.Sprintf("  Type the runbook ID to confirm:")))
-		lines = append(lines, textFg.Render(fmt.Sprintf("  %s", m.runbook.ID)))
-		lines = append(lines, "")
-		lines = append(lines, textFg.Render(fmt.Sprintf("  > %s▎", m.input)))
+		lines = append(lines, textFg.Render("  Confirm execution? (y/N)"))
 	case domain.RiskCritical:
-		lines = append(lines, textFg.Render("  Type CONFIRM to proceed:"))
+		lines = append(lines, textFg.Render("  Type the runbook ID to confirm:"))
+		lines = append(lines, mutedFg.Render(fmt.Sprintf("  %s", m.runbook.ID)))
 		lines = append(lines, "")
 		lines = append(lines, textFg.Render(fmt.Sprintf("  > %s▎", m.input)))
 	}

@@ -295,7 +295,7 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Route based on focus target.
 		if m.focus == focusOutput {
-			// Mouse events still go to sidebar if in sidebar area.
+			// Mouse events: sidebar clicks go to sidebar, everything else to output.
 			if isMouseMsg(msg) {
 				translated, inSidebar := m.translateMouseForSidebar(msg)
 				if inSidebar {
@@ -303,7 +303,10 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.sidebar, cmd = m.sidebar.Update(translated)
 					return m, cmd
 				}
-				return m, nil
+				// Forward mouse events to output for selection/scroll.
+				var cmd tea.Cmd
+				m.output, cmd = m.output.Update(msg)
+				return m, cmd
 			}
 			var cmd tea.Cmd
 			m.output, cmd = m.output.Update(msg)
@@ -494,8 +497,8 @@ func (m App) openWizard() (tea.Model, tea.Cmd) {
 }
 
 func (m App) openConfirm(rb domain.Runbook, cat domain.Catalog, params map[string]string) (tea.Model, tea.Cmd) {
-	// Low risk: skip confirmation, execute immediately.
-	if rb.RiskLevel == domain.RiskLow || rb.RiskLevel == "" {
+	// Low/Medium risk: skip confirmation, execute immediately.
+	if rb.RiskLevel == domain.RiskLow || rb.RiskLevel == domain.RiskMedium || rb.RiskLevel == "" {
 		return m.startExecution(rb, cat, params)
 	}
 	c := confirm.New(rb, cat, params, m.width*2/3, m.deps.Styles)

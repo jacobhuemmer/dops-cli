@@ -441,7 +441,6 @@ func (m Model) View() string {
 		}
 	}
 
-	matchSet := m.matchLineSet()
 	needsScrollbar := len(m.lines) > visibleH
 
 	logLines := make([]string, 0, logH+logTopPad)
@@ -450,17 +449,13 @@ func (m Model) View() string {
 		idx := yOffset + i
 		if idx < len(m.lines) {
 			line := m.lines[idx]
-			prefix := ""
-			if matchSet[idx] {
-				prefix = "» "
-			}
 			lineW := tw
 			if needsScrollbar {
 				lineW--
 			}
 			lineW = max(1, lineW)
 
-			raw := prefix + line.Text
+			raw := line.Text
 			rawWidth := ansi.StringWidth(raw)
 			var visible string
 			if m.xOffset > 0 || rawWidth > lineW {
@@ -486,11 +481,12 @@ func (m Model) View() string {
 	}
 
 	if m.searching {
-		logLines = append(logLines, logContentStyle.Width(logW).Render("  "+fmt.Sprintf("/%s", m.searchQuery)))
+		logLines = append(logLines, logContentStyle.Width(logW).Render("  "+fmt.Sprintf("Search: %s▎", m.searchQuery)))
 		logLines = append(logLines, blankLine)
 	}
 	if m.navigating && m.matchCount > 0 {
-		logLines = append(logLines, logSuccessStyle.Width(logW).Render("  "+fmt.Sprintf("[%d/%d]", m.matchIndex+1, m.matchCount)))
+		matchInfo := fmt.Sprintf("[%d/%d]", m.matchIndex+1, m.matchCount)
+		logLines = append(logLines, logSuccessStyle.Width(logW).Render("  "+m.searchQuery+" "+matchInfo+"  n/N next/prev  esc clear"))
 		logLines = append(logLines, blankLine)
 	}
 

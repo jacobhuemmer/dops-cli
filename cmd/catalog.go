@@ -131,6 +131,7 @@ func newCatalogRemoveCmd(dopsDir string) *cobra.Command {
 
 func newCatalogInstallCmd(dopsDir string) *cobra.Command {
 	var name string
+	var ref string
 
 	cmd := &cobra.Command{
 		Use:   "install <url>",
@@ -155,7 +156,11 @@ func newCatalogInstallCmd(dopsDir string) *cobra.Command {
 			}
 
 			// Git clone.
-			gitCmd := exec.Command("git", "clone", url, targetDir)
+			cloneArgs := []string{"clone", url, targetDir}
+			if ref != "" {
+				cloneArgs = []string{"clone", "--branch", ref, url, targetDir}
+			}
+			gitCmd := exec.Command("git", cloneArgs...)
 			gitCmd.Stdout = os.Stdout
 			gitCmd.Stderr = os.Stderr
 			if err := gitCmd.Run(); err != nil {
@@ -181,6 +186,7 @@ func newCatalogInstallCmd(dopsDir string) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "catalog name (defaults to repo basename)")
+	cmd.Flags().StringVar(&ref, "ref", "", "git ref to checkout (tag, branch, or commit)")
 	return cmd
 }
 
