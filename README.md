@@ -1,8 +1,14 @@
-# dops
+<p align="center">
+  <img src="assets/logo.svg" alt="dops logo" width="250" />
+</p>
 
-A terminal user interface for browsing and executing operational runbooks.
+# dops — the do(ops) cli
 
 `dops` provides a browsable catalog of automation scripts that operators can select, parameterize, and execute directly from the terminal. Built for DevOps and platform engineering workflows.
+
+<p align="center">
+  <img src="assets/demo.gif" alt="dops demo" width="900" />
+</p>
 
 ## Features
 
@@ -46,27 +52,27 @@ AI agents can discover and execute runbooks via the [Model Context Protocol](htt
 ### Homebrew
 
 ```bash
-brew tap <owner>/tap
+brew tap jacobhuemmer/tap
 brew install dops
 ```
 
 ### Go
 
 ```bash
-go install github.com/<owner>/dops-cli@latest
+go install github.com/jacobhuemmer/dops-cli@latest
 ```
 
 ### Docker (MCP server)
 
 ```bash
 # Mount your local catalogs and config into the container
-docker run -i -v ~/.dops:/data/dops ghcr.io/<owner>/dops-cli:latest
+docker run -i -v ~/.dops:/data/dops ghcr.io/jacobhuemmer/dops-cli:latest
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/<owner>/dops-cli.git
+git clone https://github.com/jacobhuemmer/dops-cli.git
 cd dops-cli
 make build
 ./bin/dops
@@ -131,10 +137,10 @@ Add to `.claude/settings.json`:
 
 ```bash
 # stdio transport — mount your catalogs/config
-docker run -i -v ~/.dops:/data/dops ghcr.io/<owner>/dops-cli:latest
+docker run -i -v ~/.dops:/data/dops ghcr.io/jacobhuemmer/dops-cli:latest
 
 # HTTP transport with gzip
-docker run -p 8080:8080 -v ~/.dops:/data/dops ghcr.io/<owner>/dops-cli:latest --transport http --port 8080
+docker run -p 8080:8080 -v ~/.dops:/data/dops ghcr.io/jacobhuemmer/dops-cli:latest --transport http --port 8080
 ```
 
 > **Note:** The container uses `DOPS_HOME=/data/dops`. Mount your local `~/.dops` directory to `/data/dops` to provide catalogs, config, and themes. You can also set `DOPS_HOME` to any path when running dops outside Docker.
@@ -187,6 +193,22 @@ Custom themes go in `~/.dops/themes/`:
     "primary": "blue"
   }
 }
+```
+
+## Shell Completion
+
+```bash
+# Bash
+dops completion bash > /etc/bash_completion.d/dops
+
+# Zsh
+dops completion zsh > "${fpath[1]}/_dops"
+
+# Fish
+dops completion fish > ~/.config/fish/completions/dops.fish
+
+# PowerShell
+dops completion powershell | Out-String | Invoke-Expression
 ```
 
 ## Development
