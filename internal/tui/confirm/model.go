@@ -17,6 +17,7 @@ type Model struct {
 	params  map[string]string
 	risk    domain.RiskLevel
 	input   string
+	cursor  int // 0 = Yes, 1 = No (for high risk toggle)
 	width   int
 	styles  *theme.Styles
 }
@@ -27,6 +28,7 @@ func New(rb domain.Runbook, cat domain.Catalog, params map[string]string, width 
 		catalog: cat,
 		params:  params,
 		risk:    rb.RiskLevel,
+		cursor:  1, // default to No
 		width:   width,
 		styles:  styles,
 	}
@@ -44,14 +46,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return m, func() tea.Msg { return ConfirmCancelMsg{} }
 
 		case msg.Code == tea.KeyEnter:
-			if m.isConfirmed() {
-				return m, func() tea.Msg {
-					return ConfirmAcceptMsg{
-						Runbook: m.runbook,
-						Catalog: m.catalog,
-						Params:  m.params,
-					}
+			if m.risk == domain.RiskHigh {
+				if m.cursor == 0 {
+					return m, m.accept()
 				}
+				return m, func() tea.Msg { return ConfirmCancelMsg{} }
+			}
+			if m.isConfirmed() {
+				return m, m.accept()
 			}
 
 		case msg.Code == tea.KeyBackspace:
@@ -61,17 +63,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 		default:
 			if m.risk == domain.RiskHigh {
-				// High: y/N single key confirmation.
-				if msg.Text == "y" || msg.Text == "Y" {
-					return m, func() tea.Msg {
-						return ConfirmAcceptMsg{
-							Runbook: m.runbook,
-							Catalog: m.catalog,
-							Params:  m.params,
-						}
-					}
-				}
-				if msg.Text == "n" || msg.Text == "N" {
+				// y/N toggle or direct key.
+				switch {
+				case msg.Code == tea.KeyLeft || msg.Text == "h" || msg.Code == tea.KeyTab:
+					m.cursor = 0
+				case msg.Code == tea.KeyRight || msg.Text == "l":
+					m.cursor = 1
+				case msg.Text == "y" || msg.Text == "Y":
+					return m, m.accept()
+				case msg.Text == "n" || msg.Text == "N":
 					return m, func() tea.Msg { return ConfirmCancelMsg{} }
 				}
 			} else if msg.Text != "" {
@@ -83,10 +83,20 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m Model) accept() func() tea.Msg {
+	return func() tea.Msg {
+		return ConfirmAcceptMsg{
+			Runbook: m.runbook,
+			Catalog: m.catalog,
+			Params:  m.params,
+		}
+	}
+}
+
 func (m Model) isConfirmed() bool {
 	switch m.risk {
 	case domain.RiskHigh:
-		return false // high uses y/N, not Enter
+		return false
 	case domain.RiskCritical:
 		return strings.TrimSpace(m.input) == m.runbook.ID
 	default:
@@ -95,49 +105,85 @@ func (m Model) isConfirmed() bool {
 }
 
 func (m Model) View() string {
-	var warningFg, mutedFg, textFg, errorFg lipgloss.Style
+	primaryStyle := lipgloss.NewStyle().Bold(true)
+	mutedStyle := lipgloss.NewStyle()
+	textStyle := lipgloss.NewStyle()
+	warningStyle := lipgloss.NewStyle()
+	errorStyle := lipgloss.NewStyle()
+	successStyle := lipgloss.NewStyle()
+
 	if m.styles != nil {
-		warningFg = m.styles.Warning
-		mutedFg = m.styles.TextMuted
-		textFg = m.styles.Text
-		errorFg = m.styles.Error
+		primaryStyle = m.styles.Primary.Bold(true)
+		mutedStyle = m.styles.TextMuted
+		textStyle = m.styles.Text
+		warningStyle = m.styles.Warning
+		errorStyle = m.styles.Error.Bold(true)
+		successStyle = m.styles.Success
 	}
 
+	var b strings.Builder
+
+	// Header: $ dops run <id>
+	b.WriteString(successStyle.Render("$") + " " + textStyle.Bold(true).Render(fmt.Sprintf("dops run %s", m.runbook.ID)))
+	b.WriteString("\n\n")
+
+	// Risk warning
 	riskLabel := strings.ToUpper(string(m.risk))
-	var riskStyle lipgloss.Style
 	switch m.risk {
 	case domain.RiskHigh:
-		riskStyle = warningFg
+		b.WriteString(warningStyle.Render(fmt.Sprintf("⚠  %s RISK", riskLabel)))
 	case domain.RiskCritical:
-		riskStyle = errorFg.Bold(true)
-	default:
-		riskStyle = textFg
+		b.WriteString(errorStyle.Render(fmt.Sprintf("⚠  %s RISK", riskLabel)))
 	}
+	b.WriteString("\n\n")
 
-	w := m.width
-	if w < 30 {
-		w = 30
-	}
+	// Runbook ID in muted
+	b.WriteString(mutedStyle.Render(fmt.Sprintf("Runbook: %s", m.runbook.ID)))
+	b.WriteString("\n\n")
 
-	var lines []string
-	lines = append(lines, "")
-	lines = append(lines, riskStyle.Render(fmt.Sprintf("  ⚠  %s RISK", riskLabel)))
-	lines = append(lines, "")
-	lines = append(lines, mutedFg.Render(fmt.Sprintf("  Runbook: %s", m.runbook.ID)))
-	lines = append(lines, "")
-
+	// Prompt
 	switch m.risk {
 	case domain.RiskHigh:
-		lines = append(lines, textFg.Render("  Confirm execution? (y/N)"))
+		b.WriteString(primaryStyle.Render("Confirm execution?"))
+		b.WriteString("\n\n")
+
+		// [Yes] [No] toggle — same style as wizard boolean/save prompt.
+		yesStyle := lipgloss.NewStyle()
+		noStyle := lipgloss.NewStyle()
+		if m.styles != nil {
+			if m.cursor == 0 {
+				yesStyle = lipgloss.NewStyle().
+					Background(m.styles.Primary.GetForeground()).
+					Foreground(m.styles.Background.GetForeground()).
+					Padding(0, 1)
+				noStyle = m.styles.TextMuted.Padding(0, 1)
+			} else {
+				yesStyle = m.styles.TextMuted.Padding(0, 1)
+				noStyle = lipgloss.NewStyle().
+					Background(m.styles.Primary.GetForeground()).
+					Foreground(m.styles.Background.GetForeground()).
+					Padding(0, 1)
+			}
+		}
+		b.WriteString("  " + yesStyle.Render("Yes") + "  " + noStyle.Render("No"))
+
 	case domain.RiskCritical:
-		lines = append(lines, textFg.Render("  Type the runbook ID to confirm:"))
-		lines = append(lines, mutedFg.Render(fmt.Sprintf("  %s", m.runbook.ID)))
-		lines = append(lines, "")
-		lines = append(lines, textFg.Render(fmt.Sprintf("  > %s▎", m.input)))
+		b.WriteString(primaryStyle.Render("Type the runbook ID to confirm:"))
+		b.WriteString("\n")
+		b.WriteString(mutedStyle.Render(m.runbook.ID))
+		b.WriteString("\n\n")
+		b.WriteString(textStyle.Render(fmt.Sprintf("> %s▎", m.input)))
 	}
 
-	lines = append(lines, "")
+	b.WriteString("\n\n")
 
-	content := strings.Join(lines, "\n")
-	return lipgloss.NewStyle().Width(w).Render(content)
+	// Footer hints
+	switch m.risk {
+	case domain.RiskHigh:
+		b.WriteString(mutedStyle.Render("← → toggle  enter confirm  esc cancel"))
+	case domain.RiskCritical:
+		b.WriteString(mutedStyle.Render("enter confirm  esc cancel"))
+	}
+
+	return b.String()
 }
