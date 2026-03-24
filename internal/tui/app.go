@@ -96,7 +96,7 @@ type App struct {
 	state       viewState
 	width       int
 	height      int
-	copiedFlash  bool // show "Copied to Clipboard" in metadata
+	copiedFlash  bool // show "Copied to Clipboard!" in metadata
 	focus        focusTarget
 	cancelExec   context.CancelFunc
 	execRunning  bool

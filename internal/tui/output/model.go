@@ -433,7 +433,7 @@ func (m Model) View() string {
 	// === Header: 1 row ===
 	var headerLine string
 	if m.copiedHeader {
-		headerLine = lipgloss.NewStyle().Foreground(successFg).Render("Copied to Clipboard")
+		headerLine = lipgloss.NewStyle().Foreground(successFg).Render("Copied to Clipboard!")
 	} else {
 		dollar := lipgloss.NewStyle().Foreground(successFg).Render("$")
 		cmd := lipgloss.NewStyle().Foreground(textFg).Render(" " + m.command)
@@ -444,7 +444,7 @@ func (m Model) View() string {
 	// === Footer: 1 row ===
 	var footerLine string
 	if m.copiedFooter {
-		footerLine = lipgloss.NewStyle().Foreground(successFg).Render("Copied to Clipboard")
+		footerLine = lipgloss.NewStyle().Foreground(successFg).Render("Copied to Clipboard!")
 	} else if m.logPath != "" && !m.searching && !m.navigating {
 		footerLine = lipgloss.NewStyle().Foreground(mutedFg).Render("Saved to " + m.logPath)
 	}
@@ -466,7 +466,11 @@ func (m Model) View() string {
 	if m.searching || m.navigating {
 		searchBarH = 2
 	}
-	visibleH := max(1, logH-searchBarH)
+	flashPadH := 0
+	if m.copyFlash {
+		flashPadH = 1 // extra blank row below the badge
+	}
+	visibleH := max(1, logH-searchBarH-flashPadH)
 	logW := max(1, cw-1) // 1 col for scrollbar
 
 	blankLine := logContentStyle.Width(logW).Render("")
@@ -486,18 +490,22 @@ func (m Model) View() string {
 
 	logLines := make([]string, 0, logH+logTopPad)
 	if m.copyFlash {
-		// Show "✓ Copied" badge right-aligned on top padding row.
+		// Show badge right-aligned with 1-char right padding on top padding row.
+		badgeText := "Copied to Clipboard!"
 		badge := lipgloss.NewStyle().
 			Background(bgElemColor).
 			Foreground(successFg).
-			Render("✓ Copied")
+			Render(badgeText)
 		badgeW := ansi.StringWidth(badge)
-		pad := logW - badgeW
+		rightPad := 1
+		pad := logW - badgeW - rightPad
 		if pad > 0 {
-			logLines = append(logLines, logContentStyle.Render(strings.Repeat(" ", pad))+badge)
+			logLines = append(logLines, logContentStyle.Render(strings.Repeat(" ", pad))+badge+logContentStyle.Render(" "))
 		} else {
 			logLines = append(logLines, badge)
 		}
+		// Extra blank row below the badge for top spacing.
+		logLines = append(logLines, blankLine)
 	} else {
 		logLines = append(logLines, blankLine) // top padding inside log
 	}

@@ -82,7 +82,7 @@ func TestRender_CopiedFlash(t *testing.T) {
 	cat := &domain.Catalog{Name: "default", Path: "~/.dops/catalogs/default"}
 	out := Render(rb, cat, 40, true, metadataTestStyles())
 
-	if !strings.Contains(out, "Copied to Clipboard") {
+	if !strings.Contains(out, "Copied to Clipboard!") {
 		t.Error("output should show copied message when flash is true")
 	}
 	if strings.Contains(out, "runbook.yaml") {
