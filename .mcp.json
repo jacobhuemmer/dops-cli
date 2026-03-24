@@ -1,0 +1,8 @@
+{
+    "mcpServers": {
+        "dops": {
+          "command": "./dops",
+          "args": ["mcp", "serve"]
+        }
+      }
+}
