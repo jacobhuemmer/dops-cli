@@ -104,7 +104,7 @@ func (m *Model) initField(idx int) {
 			ti.EchoMode = textinput.EchoPassword
 			if prefilled != "" {
 				// Show **** placeholder — user can type to override.
-				ti.Placeholder = "****  (enter to keep, type to override)"
+				ti.Placeholder = "••••••••••  (enter to keep, type to override)"
 			}
 		} else if prefilled != "" {
 			ti.SetValue(prefilled)
