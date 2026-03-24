@@ -379,27 +379,8 @@ func (m App) startExecution(rb domain.Runbook, cat domain.Catalog, params map[st
 	m.output.SetCommand(cmdStr)
 	m.resizeAll() // Recompute dimensions after command changes header height
 
-	if m.deps.Store != nil && m.deps.Config != nil {
-		for _, p := range rb.Parameters {
-			val, ok := params[p.Name]
-			if !ok {
-				continue
-			}
-			var keyPath string
-			switch p.Scope {
-			case "global":
-				keyPath = fmt.Sprintf("vars.global.%s", p.Name)
-			case "catalog":
-				keyPath = fmt.Sprintf("vars.catalog.%s.%s", cat.Name, p.Name)
-			case "runbook":
-				keyPath = fmt.Sprintf("vars.catalog.%s.runbooks.%s.%s", cat.Name, rb.Name, p.Name)
-			default:
-				keyPath = fmt.Sprintf("vars.global.%s", p.Name)
-			}
-			config.Set(m.deps.Config, keyPath, val)
-		}
-		m.deps.Store.Save(m.deps.Config)
-	}
+	// Parameter saving is handled per-field in the wizard's "Save for future runs?" prompt.
+	// No auto-save here.
 
 	if m.deps.Runner == nil {
 		return m, nil
@@ -504,12 +485,17 @@ func (m App) openWizard() (tea.Model, tea.Cmd) {
 
 	resolved := m.resolveVars()
 
-	if wizard.ShouldSkip(m.selected.Parameters, resolved) {
+	// If no parameters at all, go straight to confirm.
+	if len(m.selected.Parameters) == 0 {
 		return m.openConfirm(*m.selected, *m.selCat, resolved)
 	}
 
+	// Always show wizard — pre-fills saved values, user can accept or override.
 	wiz := wizard.New(*m.selected, *m.selCat, resolved)
 	wiz.SetStyles(m.deps.Styles)
+	if m.deps.Store != nil && m.deps.Config != nil {
+		wiz.SetStore(m.deps.Store, m.deps.Config)
+	}
 	m.wizard = &wiz
 	m.state = stateWizard
 	return m, wiz.Init()

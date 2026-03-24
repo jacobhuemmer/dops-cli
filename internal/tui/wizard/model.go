@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"dops/internal/config"
 	"dops/internal/domain"
 	"dops/internal/theme"
 
@@ -21,19 +22,31 @@ const (
 	modeBoolean
 )
 
+type wizardPhase int
+
+const (
+	phaseInput   wizardPhase = iota // collecting user input
+	phaseSave                       // asking "Save for future runs?"
+)
+
 type Model struct {
 	runbook  domain.Runbook
 	catalog  domain.Catalog
-	resolved map[string]string
-	params   []domain.Parameter // missing params to collect
-	current  int                // index of current field
-	values   map[string]string  // collected values
-	input    textinput.Model    // for text/integer/password/filepath/resourceid
-	cursor   int                // for select/multiselect/boolean cursor
-	checked  map[int]bool       // for multiselect toggles
-	err      string             // validation error
+	resolved map[string]string   // pre-filled values from config
+	params   []domain.Parameter  // ALL params (not just missing)
+	current  int                 // index of current field
+	values   map[string]string   // collected values
+	input    textinput.Model     // for text/integer/password/filepath/resourceid
+	cursor   int                 // for select/multiselect/boolean/save cursor
+	checked  map[int]bool        // for multiselect toggles
+	err      string              // validation error
+	phase    wizardPhase         // current phase (input or save confirm)
+	changed  bool                // whether user typed a new value (vs accepting pre-fill)
+	prefill  map[string]bool     // tracks which fields had saved values
 	width    int
 	styles   *theme.Styles
+	store    config.ConfigStore  // for saving values
+	cfg      *domain.Config      // config to save into
 }
 
 func New(rb domain.Runbook, cat domain.Catalog, resolved map[string]string) Model {
@@ -43,9 +56,17 @@ func New(rb domain.Runbook, cat domain.Catalog, resolved map[string]string) Mode
 		resolved: resolved,
 		values:   make(map[string]string),
 		checked:  make(map[int]bool),
+		prefill:  make(map[string]bool),
+		params:   rb.Parameters, // ALL params, not just missing
 	}
 
-	m.params = MissingParams(rb.Parameters, resolved)
+	// Mark which params have pre-filled values.
+	for _, p := range m.params {
+		if _, ok := resolved[p.Name]; ok {
+			m.prefill[p.Name] = true
+		}
+	}
+
 	if len(m.params) > 0 {
 		m.initField(0)
 	}
@@ -56,6 +77,12 @@ func (m *Model) SetStyles(s *theme.Styles) {
 	m.styles = s
 }
 
+// SetStore provides config persistence for the "Save for future runs?" feature.
+func (m *Model) SetStore(store config.ConfigStore, cfg *domain.Config) {
+	m.store = store
+	m.cfg = cfg
+}
+
 func (m *Model) initField(idx int) {
 	if idx >= len(m.params) {
 		return
@@ -63,7 +90,10 @@ func (m *Model) initField(idx int) {
 	m.current = idx
 	m.cursor = 0
 	m.err = ""
+	m.phase = phaseInput
+	m.changed = false
 	p := m.params[idx]
+	prefilled := m.resolved[p.Name]
 
 	switch m.fieldMode(p) {
 	case modeTextInput:
@@ -72,19 +102,48 @@ func (m *Model) initField(idx int) {
 		ti.Prompt = "> "
 		if p.Secret {
 			ti.EchoMode = textinput.EchoPassword
-		}
-		// Pre-fill with default if available.
-		if p.Default != nil {
+			if prefilled != "" {
+				// Show **** placeholder — user can type to override.
+				ti.Placeholder = "****  (enter to keep, type to override)"
+			}
+		} else if prefilled != "" {
+			ti.SetValue(prefilled)
+		} else if p.Default != nil {
 			ti.SetValue(fmt.Sprintf("%v", p.Default))
 		}
 		m.input = ti
 	case modeSelect:
 		m.cursor = 0
+		// Set cursor to the pre-filled option if available.
+		if prefilled != "" {
+			for i, opt := range p.Options {
+				if opt == prefilled {
+					m.cursor = i
+					break
+				}
+			}
+		}
 	case modeMultiSelect:
 		m.cursor = 0
 		m.checked = make(map[int]bool)
+		// Pre-check saved multi-select values.
+		if prefilled != "" {
+			selected := strings.Split(prefilled, ", ")
+			selSet := make(map[string]bool)
+			for _, s := range selected {
+				selSet[strings.TrimSpace(s)] = true
+			}
+			for i, opt := range p.Options {
+				if selSet[opt] {
+					m.checked[i] = true
+				}
+			}
+		}
 	case modeBoolean:
-		m.cursor = 0 // 0 = Yes, 1 = No
+		m.cursor = 1 // default No
+		if prefilled == "true" {
+			m.cursor = 0
+		}
 	}
 }
 
@@ -119,6 +178,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return m, func() tea.Msg { return WizardCancelMsg{} }
 		}
 
+		// Save confirmation phase.
+		if m.phase == phaseSave {
+			return m.updateSaveConfirm(msg)
+		}
+
 		p := m.params[m.current]
 		mode := m.fieldMode(p)
 
@@ -135,7 +199,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	// Forward to textinput for cursor blink etc.
-	if m.current < len(m.params) && m.fieldMode(m.params[m.current]) == modeTextInput {
+	if m.phase == phaseInput && m.current < len(m.params) && m.fieldMode(m.params[m.current]) == modeTextInput {
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(msg)
 		return m, cmd
@@ -145,15 +209,21 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) updateTextInput(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	p := m.params[m.current]
 	switch {
 	case msg.Code == tea.KeyEnter:
 		val := strings.TrimSpace(m.input.Value())
-		p := m.params[m.current]
+		// Secret field with empty input and saved value → keep saved value.
+		if p.Secret && val == "" && m.prefill[p.Name] {
+			m.values[p.Name] = m.resolved[p.Name]
+			m.changed = false
+			return m.advance()
+		}
 		if p.Required && val == "" {
 			m.err = "required field"
 			return m, nil
 		}
-		if p.Type == domain.ParamInteger {
+		if p.Type == domain.ParamInteger && val != "" {
 			for _, c := range val {
 				if c < '0' || c > '9' {
 					m.err = "must be an integer"
@@ -162,7 +232,9 @@ func (m Model) updateTextInput(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 		}
 		m.values[p.Name] = val
-		return m.advance()
+		// Check if value was changed from pre-fill.
+		m.changed = !m.prefill[p.Name] || val != m.resolved[p.Name]
+		return m.advanceOrSave()
 	case msg.String() == "shift+tab":
 		return m.goBack()
 	default:
@@ -185,8 +257,10 @@ func (m Model) updateSelect(msg tea.KeyPressMsg, p domain.Parameter) (Model, tea
 		}
 	case msg.Code == tea.KeyEnter:
 		if m.cursor < len(p.Options) {
-			m.values[p.Name] = p.Options[m.cursor]
-			return m.advance()
+			val := p.Options[m.cursor]
+			m.values[p.Name] = val
+			m.changed = !m.prefill[p.Name] || val != m.resolved[p.Name]
+			return m.advanceOrSave()
 		}
 	case msg.String() == "shift+tab":
 		return m.goBack()
@@ -213,8 +287,10 @@ func (m Model) updateMultiSelect(msg tea.KeyPressMsg, p domain.Parameter) (Model
 				selected = append(selected, o)
 			}
 		}
-		m.values[p.Name] = strings.Join(selected, ", ")
-		return m.advance()
+		val := strings.Join(selected, ", ")
+		m.values[p.Name] = val
+		m.changed = !m.prefill[p.Name] || val != m.resolved[p.Name]
+		return m.advanceOrSave()
 	case msg.String() == "shift+tab":
 		return m.goBack()
 	}
@@ -224,32 +300,86 @@ func (m Model) updateMultiSelect(msg tea.KeyPressMsg, p domain.Parameter) (Model
 func (m Model) updateBoolean(msg tea.KeyPressMsg, p domain.Parameter) (Model, tea.Cmd) {
 	switch {
 	case msg.Code == tea.KeyLeft || msg.Text == "h" || msg.Code == tea.KeyTab:
-		m.cursor = 0 // Yes
+		m.cursor = 0
 	case msg.Code == tea.KeyRight || msg.Text == "l":
-		m.cursor = 1 // No
+		m.cursor = 1
 	case msg.Text == "y" || msg.Text == "Y":
 		m.values[p.Name] = "true"
-		return m.advance()
+		m.changed = !m.prefill[p.Name] || "true" != m.resolved[p.Name]
+		return m.advanceOrSave()
 	case msg.Text == "n" || msg.Text == "N":
 		m.values[p.Name] = "false"
-		return m.advance()
+		m.changed = !m.prefill[p.Name] || "false" != m.resolved[p.Name]
+		return m.advanceOrSave()
 	case msg.Code == tea.KeyEnter:
+		val := "false"
 		if m.cursor == 0 {
-			m.values[p.Name] = "true"
-		} else {
-			m.values[p.Name] = "false"
+			val = "true"
 		}
-		return m.advance()
+		m.values[p.Name] = val
+		m.changed = !m.prefill[p.Name] || val != m.resolved[p.Name]
+		return m.advanceOrSave()
 	case msg.String() == "shift+tab":
 		return m.goBack()
 	}
 	return m, nil
 }
 
+func (m Model) updateSaveConfirm(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case msg.Code == tea.KeyLeft || msg.Text == "h" || msg.Code == tea.KeyTab:
+		m.cursor = 0 // Yes
+	case msg.Code == tea.KeyRight || msg.Text == "l":
+		m.cursor = 1 // No
+	case msg.Text == "y" || msg.Text == "Y":
+		m.saveCurrentField()
+		return m.advance()
+	case msg.Text == "n" || msg.Text == "N":
+		return m.advance()
+	case msg.Code == tea.KeyEnter:
+		if m.cursor == 0 {
+			m.saveCurrentField()
+		}
+		return m.advance()
+	}
+	return m, nil
+}
+
+// advanceOrSave shows the save prompt if value was changed, otherwise advances.
+func (m Model) advanceOrSave() (Model, tea.Cmd) {
+	if m.changed {
+		m.phase = phaseSave
+		m.cursor = 1 // default to "No"
+		return m, nil
+	}
+	return m.advance()
+}
+
+func (m *Model) saveCurrentField() {
+	if m.store == nil || m.cfg == nil {
+		return
+	}
+	p := m.params[m.current]
+	val := m.values[p.Name]
+
+	var keyPath string
+	switch p.Scope {
+	case "global":
+		keyPath = fmt.Sprintf("vars.global.%s", p.Name)
+	case "catalog":
+		keyPath = fmt.Sprintf("vars.catalog.%s.%s", m.catalog.Name, p.Name)
+	case "runbook":
+		keyPath = fmt.Sprintf("vars.catalog.%s.runbooks.%s.%s", m.catalog.Name, m.runbook.Name, p.Name)
+	default:
+		keyPath = fmt.Sprintf("vars.global.%s", p.Name)
+	}
+	config.Set(m.cfg, keyPath, val)
+	m.store.Save(m.cfg)
+}
+
 func (m Model) advance() (Model, tea.Cmd) {
 	next := m.current + 1
 	if next >= len(m.params) {
-		// All fields completed — submit.
 		return m, func() tea.Msg {
 			return WizardSubmitMsg{
 				Runbook: m.runbook,
@@ -270,7 +400,6 @@ func (m Model) goBack() (Model, tea.Cmd) {
 		return m, nil
 	}
 	prev := m.current - 1
-	// Remove the previous value so it can be re-entered.
 	delete(m.values, m.params[prev].Name)
 	m.initField(prev)
 	if m.fieldMode(m.params[prev]) == modeTextInput {
@@ -279,11 +408,16 @@ func (m Model) goBack() (Model, tea.Cmd) {
 	return m, nil
 }
 
-// FooterHints returns context-sensitive keybinding hints for the current field.
+// FooterHints returns context-sensitive keybinding hints.
 func (m Model) FooterHints() string {
 	if len(m.params) == 0 || m.current >= len(m.params) {
 		return ""
 	}
+
+	if m.phase == phaseSave {
+		return "← → toggle  enter confirm"
+	}
+
 	p := m.params[m.current]
 	switch m.fieldMode(p) {
 	case modeSelect:
@@ -294,6 +428,9 @@ func (m Model) FooterHints() string {
 		return "← → toggle  enter confirm  esc cancel"
 	default:
 		hint := "enter next"
+		if p.Secret && m.prefill[p.Name] {
+			hint = "enter accept  type to override"
+		}
 		if m.current > 0 {
 			hint += "  shift+tab back"
 		}
@@ -308,7 +445,7 @@ func (m Model) View() string {
 
 	var b strings.Builder
 
-	// --- Header: $ dops run <id> ---
+	// --- Header ---
 	cmd := BuildCommand(m.runbook, m.collectParams())
 	b.WriteString(m.renderHeader(cmd))
 	b.WriteString("\n")
@@ -323,16 +460,25 @@ func (m Model) View() string {
 		b.WriteString(m.renderCompletedField(p.Name, val))
 		b.WriteString("\n")
 	}
-
 	if m.current > 0 {
 		b.WriteString("\n")
 	}
 
-	// --- Current field ---
-	p := m.params[m.current]
-	b.WriteString(m.renderCurrentField(p))
+	// --- Current field or save prompt ---
+	if m.phase == phaseSave {
+		p := m.params[m.current]
+		val := m.values[p.Name]
+		if p.Secret {
+			val = "****"
+		}
+		b.WriteString(m.renderCompletedField(p.Name, val))
+		b.WriteString("\n\n")
+		b.WriteString(m.renderSavePrompt())
+	} else {
+		p := m.params[m.current]
+		b.WriteString(m.renderCurrentField(p))
+	}
 
-	// --- Error ---
 	if m.err != "" {
 		b.WriteString("\n")
 		b.WriteString(m.renderError(m.err))
@@ -359,7 +505,6 @@ func (m Model) renderCompletedField(name, value string) string {
 	if m.styles != nil {
 		mutedStyle = m.styles.TextMuted
 	}
-	// Left-align name in a 14-char column.
 	padded := name + ":"
 	if len(padded) < 15 {
 		padded += strings.Repeat(" ", 15-len(padded))
@@ -383,7 +528,6 @@ func (m Model) renderCurrentField(p domain.Parameter) string {
 	switch m.fieldMode(p) {
 	case modeTextInput:
 		b.WriteString(textStyle.Render(m.input.View()))
-
 	case modeSelect:
 		for i, opt := range p.Options {
 			if i == m.cursor {
@@ -392,7 +536,6 @@ func (m Model) renderCurrentField(p domain.Parameter) string {
 				b.WriteString("  " + textStyle.Render(opt) + "\n")
 			}
 		}
-
 	case modeMultiSelect:
 		for i, opt := range p.Options {
 			check := "[ ]"
@@ -405,7 +548,6 @@ func (m Model) renderCurrentField(p domain.Parameter) string {
 				b.WriteString("  " + check + " " + textStyle.Render(opt) + "\n")
 			}
 		}
-
 	case modeBoolean:
 		yesStyle := lipgloss.NewStyle()
 		noStyle := lipgloss.NewStyle()
@@ -426,6 +568,37 @@ func (m Model) renderCurrentField(p domain.Parameter) string {
 		}
 		b.WriteString("  " + yesStyle.Render("Yes") + "  " + noStyle.Render("No") + "\n")
 	}
+
+	return b.String()
+}
+
+func (m Model) renderSavePrompt() string {
+	primaryStyle := lipgloss.NewStyle().Bold(true)
+	if m.styles != nil {
+		primaryStyle = m.styles.Primary.Bold(true)
+	}
+
+	var b strings.Builder
+	b.WriteString(primaryStyle.Render("Save for future runs?") + "\n\n")
+
+	yesStyle := lipgloss.NewStyle()
+	noStyle := lipgloss.NewStyle()
+	if m.styles != nil {
+		if m.cursor == 0 {
+			yesStyle = lipgloss.NewStyle().
+				Background(m.styles.Primary.GetForeground()).
+				Foreground(m.styles.Background.GetForeground()).
+				Padding(0, 1)
+			noStyle = m.styles.TextMuted.Padding(0, 1)
+		} else {
+			yesStyle = m.styles.TextMuted.Padding(0, 1)
+			noStyle = lipgloss.NewStyle().
+				Background(m.styles.Primary.GetForeground()).
+				Foreground(m.styles.Background.GetForeground()).
+				Padding(0, 1)
+		}
+	}
+	b.WriteString("  " + yesStyle.Render("Yes") + "  " + noStyle.Render("No") + "\n")
 
 	return b.String()
 }
