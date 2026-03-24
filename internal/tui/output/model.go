@@ -80,6 +80,7 @@ func (m *Model) Clear() {
 func (m *Model) SetCommand(cmd string) {
 	m.command = cmd
 	m.updateCommandLineH()
+	m.resizeViewport()
 }
 
 func (m Model) Command() string       { return m.command }
@@ -413,7 +414,7 @@ func (m Model) View() string {
 	logW := max(1, innerW-1)                           // leave 1 col for scrollbar
 
 	// Styled blank line (bgElemColor fills full width).
-	blankLine := logContentStyle.Render(strings.Repeat(" ", logW))
+	blankLine := logContentStyle.Width(logW).Render("")
 
 	// Scroll position from the viewport.
 	yOffset := m.vp.YOffset()
@@ -463,15 +464,15 @@ func (m Model) View() string {
 				visible = ansi.Truncate(raw, lineW, "")
 			}
 
+			// Render the full line at exactly logW width so bgElemColor
+			// fills edge-to-edge. The Width() ensures lipgloss pads with
+			// the background color.
+			lineText := "  " + visible
 			var styled string
 			if line.IsStderr {
-				styled = "  " + logStderrStyle.Render(visible)
+				styled = logStderrStyle.Width(logW).Render(lineText)
 			} else {
-				styled = "  " + logContentStyle.Render(visible)
-			}
-			// Pad to full width so bgElemColor fills the row.
-			if visW := ansi.StringWidth(styled); visW < logW {
-				styled += logContentStyle.Render(strings.Repeat(" ", logW-visW))
+				styled = logContentStyle.Width(logW).Render(lineText)
 			}
 			logLines = append(logLines, styled)
 		} else {
@@ -493,7 +494,14 @@ func (m Model) View() string {
 	contentStr := strings.Join(logLines, "\n")
 	scrollbar := m.renderScrollbar(logTotalH, yOffset, visibleH, logContentStyle, thumbStyle)
 	logInner := lipgloss.JoinHorizontal(lipgloss.Top, contentStr, scrollbar)
-	logBox := sectionBorder.Width(m.width).Render(logInner)
+	// Use a dedicated log section border with bgElemColor background so any
+	// filler rows inside the border also carry the log background color.
+	logSectionBorder := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderFg).
+		BorderBackground(bgColor).
+		Background(bgElemColor)
+	logBox := logSectionBorder.Width(m.width).Render(logInner)
 
 	return lipgloss.JoinVertical(lipgloss.Left, headerBox, logBox, footerBox)
 }

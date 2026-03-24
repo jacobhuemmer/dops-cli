@@ -118,18 +118,45 @@ func (m App) Init() tea.Cmd {
 	return m.sidebar.Init()
 }
 
+// resizeAll computes layout dimensions from the current terminal size and
+// persists them on the sidebar and output models. Must be called from Update
+// (not View) so changes survive across message cycles.
+func (m *App) resizeAll() {
+	footerH := 1
+	gap := 1
+	borderSize := layoutBorderSize * 2
+
+	innerW := clamp(m.width-layoutMarginLeft, 1)
+	sw := sidebarWidth(innerW)
+	rightW := clamp(innerW-sw-borderSize-gap, 1)
+	contentW := clamp(rightW-borderSize, 1)
+	panelRows := clamp(m.height-layoutMarginTop-footerH, 1)
+
+	// Sidebar
+	sidebarContentH := clamp(panelRows-borderSize-1, 3)
+	m.sidebar.SetHeight(sidebarContentH)
+
+	// Metadata height estimate (render to measure).
+	metaContent := metadata.Render(m.selected, m.selCat, contentW, m.copiedFlash, m.deps.Styles)
+	metaView := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		Width(contentW).
+		Render(metaContent)
+	metaRenderedH := lipgloss.Height(metaView)
+	sidebarRenderedH := sidebarContentH + borderSize
+
+	// Output — set dimensions that persist across Update/View cycles.
+	outputH := clamp(sidebarRenderedH-metaRenderedH, 3)
+	outputW := clamp(rightW, 3)
+	m.output.SetSize(outputW, outputH)
+}
+
 func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Recalculate sidebar dimensions for new terminal size
-		panelRows := m.height - 2 // separator + footer
-		sidebarContentH := panelRows - 2 // border top+bottom
-		if sidebarContentH < 3 {
-			sidebarContentH = 3
-		}
-		m.sidebar.SetHeight(sidebarContentH)
+		m.resizeAll()
 		return m, nil
 
 	case tea.KeyPressMsg:
@@ -277,6 +304,7 @@ func (m App) startExecution(rb domain.Runbook, cat domain.Catalog, params map[st
 	m.output.Clear()
 	cmdStr := wizard.BuildCommand(rb, params)
 	m.output.SetCommand(cmdStr)
+	m.resizeAll() // Recompute dimensions after command changes header height
 
 	if m.deps.Store != nil && m.deps.Config != nil {
 		for _, p := range rb.Parameters {
@@ -477,18 +505,18 @@ func (m App) viewNormal() tea.View {
 	metaRenderedH := lipgloss.Height(metaView)
 
 	// --- Output: manages its own three bordered sections ---
-	outputH := clamp(sidebarRenderedH - metaRenderedH, 3)
-	outputW := clamp(rightW, 3)
-	m.output.SetSize(outputW, outputH)
+	// Dimensions are set persistently via resizeAll() in Update, not here.
 	m.output.SetFocused(m.focus == focusOutput)
 	outputView := m.output.View()
 	// When no session, fill the space with an empty bordered box.
 	if !m.output.HasSession() {
+		emptyH := clamp(sidebarRenderedH-metaRenderedH, 3)
+		emptyW := clamp(rightW-borderSize, 1)
 		outputView = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(borderColor).
-			Width(clamp(outputW-borderSize, 1)).
-			Height(outputH).
+			Width(emptyW).
+			Height(emptyH).
 			Render("")
 	}
 
