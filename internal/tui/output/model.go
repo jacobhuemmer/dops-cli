@@ -188,46 +188,30 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m.updateNormal(msg)
 
 	case tea.MouseClickMsg:
-		// Start text selection in the log area.
-		// Coordinates are output-local (translated by the app).
-		// Layout: header(row 0) + gap(row 1) + topPad(row 2) → first line at row 3
-		// Column: padX(1) + indent(2) → text starts at col 3
-		logTop := 3
-		logCol := 3
-		row := msg.Y - logTop
-		col := msg.X - logCol
-		if row >= 0 && row < m.bodyHeight() {
-			m.selection.Reset()
-			m.selection.Active = true
-			m.selection.AnchorX = max(0, col)
-			m.selection.AnchorY = row
-			m.selection.FocusX = max(0, col)
-			m.selection.FocusY = row
-		} else {
-			m.selection.Reset()
-		}
+		// Store selection in rendered-output coordinates (no offset math).
+		// highlightSelection operates directly on these coordinates.
+		m.selection.Reset()
+		m.selection.Active = true
+		m.selection.AnchorX = msg.X
+		m.selection.AnchorY = msg.Y
+		m.selection.FocusX = msg.X
+		m.selection.FocusY = msg.Y
 		return m, nil
 
 	case tea.MouseMotionMsg:
-		// In CellMotion mode, motion events are only sent when a button
-		// is held, so no need to check msg.Button.
 		if m.selection.Active {
-			logTop := 3
-			logCol := 3
-			m.selection.FocusX = max(0, msg.X-logCol)
-			m.selection.FocusY = max(0, msg.Y-logTop)
+			m.selection.FocusX = msg.X
+			m.selection.FocusY = msg.Y
 		}
 		return m, nil
 
 	case tea.MouseReleaseMsg:
 		if m.selection.Active {
-			logTop := 3
-			logCol := 3
-			m.selection.FocusX = max(0, msg.X-logCol)
-			m.selection.FocusY = max(0, msg.Y-logTop)
+			m.selection.FocusX = msg.X
+			m.selection.FocusY = msg.Y
 
 			if !m.selection.IsEmpty() {
-				text := m.selection.ExtractText(m.visibleLineTexts())
+				text := m.extractSelectedText()
 				if text != "" {
 					m.copyFlash = true
 					return m, tea.Batch(
@@ -266,7 +250,7 @@ func (m Model) updateNormal(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	case msg.Text == "y":
 		if m.selection.Active && !m.selection.IsEmpty() {
-			text := m.selection.ExtractText(m.visibleLineTexts())
+			text := m.extractSelectedText()
 			m.selection.Reset()
 			if text != "" {
 				return m, tea.SetClipboard(text)
@@ -560,6 +544,47 @@ func (m Model) matchLineSet() map[int]bool {
 	return set
 }
 
+// extractSelectedText extracts plain text from the current selection using
+// the rendered output. Works in rendered-output coordinates.
+func (m Model) extractSelectedText() string {
+	if !m.selection.Active || m.selection.IsEmpty() {
+		return ""
+	}
+
+	rendered := m.View()
+	startX, startY, endX, endY := m.selection.Bounds()
+	lines := strings.Split(rendered, "\n")
+
+	var result []string
+	for i := startY; i <= endY; i++ {
+		if i < 0 || i >= len(lines) {
+			continue
+		}
+		lineWidth := ansi.StringWidth(lines[i])
+		if lineWidth == 0 {
+			result = append(result, "")
+			continue
+		}
+
+		lx := 0
+		rx := lineWidth
+		if i == startY {
+			lx = startX
+		}
+		if i == endY {
+			rx = min(lineWidth, endX+1)
+		}
+		if lx >= rx {
+			continue
+		}
+
+		selected := ansi.Cut(lines[i], lx, rx)
+		result = append(result, ansi.Strip(selected))
+	}
+
+	return strings.Join(result, "\n")
+}
+
 // highlightSelection post-processes the rendered output to apply the selection
 // style to the character range covered by the current selection. Uses ANSI-aware
 // Cut to split styled lines, matching the legacy implementation.
@@ -568,19 +593,9 @@ func (m Model) highlightSelection(rendered string, hlStyle lipgloss.Style) strin
 		return rendered
 	}
 
-	// Selection coordinates are relative to visible log content (row 0 = first
-	// visible line). The rendered output has: header(row 0), gap(row 1),
-	// topPad(row 2), then log content starting at row 3.
-	logStartRow := 3 // offset from rendered output row 0 to first log content row
+	// Selection coordinates are already in rendered-output space
+	// (set directly from mouse events, no offset translation).
 	startX, startY, endX, endY := m.selection.Bounds()
-
-	// Shift selection to rendered output coordinates.
-	startY += logStartRow
-	endY += logStartRow
-	// Shift X for the 1-col padding + 2-char indent.
-	padIndent := 3
-	startX += padIndent
-	endX += padIndent
 
 	lines := strings.Split(rendered, "\n")
 	for i := range lines {
