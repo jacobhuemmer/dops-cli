@@ -467,11 +467,7 @@ func (m Model) View() string {
 	if m.searching || m.navigating {
 		searchBarH = 2
 	}
-	flashPadH := 0
-	if m.copyFlash {
-		flashPadH = 2 // blank row above + blank row below the badge
-	}
-	visibleH := max(1, logH-searchBarH-flashPadH)
+	visibleH := max(1, logH-searchBarH)
 	logW := max(1, cw-1) // 1 col for scrollbar
 
 	blankLine := logContentStyle.Width(logW).Render("")
@@ -491,9 +487,7 @@ func (m Model) View() string {
 
 	logLines := make([]string, 0, logH+logTopPad)
 	if m.copyFlash {
-		// Blank row above badge to push it down from the top edge.
-		logLines = append(logLines, blankLine)
-		// Show badge right-aligned with 1-char right padding.
+		// Replace top padding with the badge — no extra rows, no content shift.
 		badgeText := "Copied to Clipboard!"
 		badge := lipgloss.NewStyle().
 			Background(bgElemColor).
@@ -507,8 +501,6 @@ func (m Model) View() string {
 		} else {
 			logLines = append(logLines, badge)
 		}
-		// Blank row below badge for spacing from log content.
-		logLines = append(logLines, blankLine)
 	} else {
 		logLines = append(logLines, blankLine) // top padding inside log
 	}
