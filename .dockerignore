@@ -1,0 +1,9 @@
+bin/
+*.png
+*.gif
+tapes/screenshots/
+tapes/gifs/
+.claude/
+plans/
+specs/
+coverage.*

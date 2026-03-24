@@ -1,0 +1,32 @@
+version: 2
+
+builds:
+  - binary: dops
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - formats: ['tar.gz']
+
+brews:
+  - name: dops
+    repository:
+      owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
+      name: homebrew-tap
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/{{ .Env.GITHUB_REPOSITORY }}"
+    description: Developer Operations TUI — browse, parameterize, and execute runbooks from the terminal
+    license: MIT
+    install: |
+      bin.install "dops"
+    test: |
+      system "#{bin}/dops", "version"
