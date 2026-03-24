@@ -137,8 +137,8 @@ func (m Model) bodyHeight() int {
 
 // textWidth returns usable character width for log lines.
 func (m Model) textWidth() int {
-	// 2 indent + 1 scrollbar
-	return max(1, m.width-3)
+	// 2 padding + 2 indent + 1 scrollbar
+	return max(1, m.width-5)
 }
 
 func (m *Model) updateCommandLineH() {
@@ -339,8 +339,10 @@ func (m Model) View() string {
 
 	// No section borders — the app renders the outer border. Content is flat.
 	// m.width is the content width INSIDE the app's outer border.
-	cw := max(1, m.width)
-	tw := m.textWidth() // line width for log text (cw - 2 indent - 1 scrollbar)
+	// Reserve 1 char left + 1 char right padding across all sections.
+	padX := 1
+	cw := max(1, m.width-padX*2)
+	tw := max(1, cw-3) // line width for log text (cw - 2 indent - 1 scrollbar)
 
 	// === Header: 1 row ===
 	var headerLine string
@@ -449,7 +451,8 @@ func (m Model) View() string {
 	// Gap rows between sections (empty, terminal background).
 	gap := lipgloss.NewStyle().Width(cw).Render("")
 
-	return lipgloss.JoinVertical(lipgloss.Left, headerBox, gap, logBox, gap, footerBox)
+	inner := lipgloss.JoinVertical(lipgloss.Left, headerBox, gap, logBox, gap, footerBox)
+	return lipgloss.NewStyle().PaddingLeft(padX).PaddingRight(padX).Render(inner)
 }
 
 func (m Model) matchLineSet() map[int]bool {
