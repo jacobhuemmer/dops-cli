@@ -79,8 +79,6 @@ func TestMissingParams_SomeMissing(t *testing.T) {
 
 	missing := MissingParams(rb.Parameters, resolved)
 
-	// namespace (required) and env (required) should be missing
-	// dry_run is optional, so it's included only if not resolved
 	names := make(map[string]bool)
 	for _, p := range missing {
 		names[p.Name] = true
@@ -107,7 +105,6 @@ func TestBuildCommand_Format(t *testing.T) {
 		t.Fatal("command should not be empty")
 	}
 
-	// Should contain the runbook ID
 	if !contains(cmd, "default.hello-world") {
 		t.Error("command should contain runbook ID")
 	}
@@ -126,9 +123,9 @@ func TestNewModel_WithMissingParams(t *testing.T) {
 		t.Errorf("runbook = %q", m.runbook.ID)
 	}
 
-	// The form should exist (there are missing params)
-	if m.form == nil {
-		t.Error("form should be created for missing params")
+	// Should have missing params to collect.
+	if len(m.params) == 0 {
+		t.Error("should have missing params")
 	}
 }
 
@@ -142,6 +139,19 @@ func TestNewModel_CommandHeader(t *testing.T) {
 
 	if !contains(view, "dops run") {
 		t.Error("view should show command header")
+	}
+}
+
+func TestNewModel_FooterHints(t *testing.T) {
+	rb := testRunbook()
+	cat := domain.Catalog{Name: "default"}
+	resolved := map[string]string{"region": "us-east-1"}
+
+	m := New(rb, cat, resolved)
+	hints := m.FooterHints()
+
+	if hints == "" {
+		t.Error("footer hints should not be empty")
 	}
 }
 

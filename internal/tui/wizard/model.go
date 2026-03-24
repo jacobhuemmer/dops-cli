@@ -5,19 +5,35 @@ import (
 	"strings"
 
 	"dops/internal/domain"
+	"dops/internal/theme"
 
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/huh/v2"
+	lipgloss "charm.land/lipgloss/v2"
+)
+
+type fieldMode int
+
+const (
+	modeTextInput fieldMode = iota
+	modeSelect
+	modeMultiSelect
+	modeBoolean
 )
 
 type Model struct {
 	runbook  domain.Runbook
 	catalog  domain.Catalog
 	resolved map[string]string
-	values   map[string]*string
-	form     *huh.Form
+	params   []domain.Parameter // missing params to collect
+	current  int                // index of current field
+	values   map[string]string  // collected values
+	input    textinput.Model    // for text/integer/password/filepath/resourceid
+	cursor   int                // for select/multiselect/boolean cursor
+	checked  map[int]bool       // for multiselect toggles
+	err      string             // validation error
 	width    int
-	height   int
+	styles   *theme.Styles
 }
 
 func New(rb domain.Runbook, cat domain.Catalog, resolved map[string]string) Model {
@@ -25,65 +41,75 @@ func New(rb domain.Runbook, cat domain.Catalog, resolved map[string]string) Mode
 		runbook:  rb,
 		catalog:  cat,
 		resolved: resolved,
-		values:   make(map[string]*string),
+		values:   make(map[string]string),
+		checked:  make(map[int]bool),
 	}
 
-	missing := MissingParams(rb.Parameters, resolved)
-	if len(missing) == 0 {
-		return m
+	m.params = MissingParams(rb.Parameters, resolved)
+	if len(m.params) > 0 {
+		m.initField(0)
 	}
-
-	var fields []huh.Field
-	for _, p := range missing {
-		val := ""
-		if v, ok := resolved[p.Name]; ok {
-			val = v
-		}
-		m.values[p.Name] = &val
-
-		switch p.Type {
-		case domain.ParamBoolean:
-			boolVal := val == "true"
-			boolPtr := &boolVal
-			fields = append(fields, huh.NewConfirm().
-				Title(p.Name).
-				Description(p.Description).
-				Value(boolPtr))
-		case domain.ParamSelect:
-			opts := make([]huh.Option[string], len(p.Options))
-			for i, o := range p.Options {
-				opts[i] = huh.NewOption(o, o)
-			}
-			fields = append(fields, huh.NewSelect[string]().
-				Title(p.Name).
-				Description(p.Description).
-				Options(opts...).
-				Value(m.values[p.Name]))
-		default: // string, integer
-			input := huh.NewInput().
-				Title(p.Name).
-				Description(p.Description).
-				Value(m.values[p.Name])
-			if p.Secret {
-				input = input.EchoMode(huh.EchoModePassword)
-			}
-			fields = append(fields, input)
-		}
-	}
-
-	m.form = huh.NewForm(huh.NewGroup(fields...))
 	return m
 }
 
+func (m *Model) SetStyles(s *theme.Styles) {
+	m.styles = s
+}
+
+func (m *Model) initField(idx int) {
+	if idx >= len(m.params) {
+		return
+	}
+	m.current = idx
+	m.cursor = 0
+	m.err = ""
+	p := m.params[idx]
+
+	switch m.fieldMode(p) {
+	case modeTextInput:
+		ti := textinput.New()
+		ti.Focus()
+		ti.Prompt = "> "
+		if p.Secret {
+			ti.EchoMode = textinput.EchoPassword
+		}
+		// Pre-fill with default if available.
+		if p.Default != nil {
+			ti.SetValue(fmt.Sprintf("%v", p.Default))
+		}
+		m.input = ti
+	case modeSelect:
+		m.cursor = 0
+	case modeMultiSelect:
+		m.cursor = 0
+		m.checked = make(map[int]bool)
+	case modeBoolean:
+		m.cursor = 0 // 0 = Yes, 1 = No
+	}
+}
+
+func (m Model) fieldMode(p domain.Parameter) fieldMode {
+	switch p.Type {
+	case domain.ParamSelect:
+		return modeSelect
+	case domain.ParamMultiSelect:
+		return modeMultiSelect
+	case domain.ParamBoolean:
+		return modeBoolean
+	default:
+		return modeTextInput
+	}
+}
+
 func (m Model) Init() tea.Cmd {
-	if m.form == nil {
+	if len(m.params) == 0 {
 		return nil
 	}
-	return m.form.Init()
+	return m.input.Focus()
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	if m.form == nil {
+	if len(m.params) == 0 {
 		return m, nil
 	}
 
@@ -92,14 +118,138 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		if msg.Code == tea.KeyEscape {
 			return m, func() tea.Msg { return WizardCancelMsg{} }
 		}
+
+		p := m.params[m.current]
+		mode := m.fieldMode(p)
+
+		switch mode {
+		case modeTextInput:
+			return m.updateTextInput(msg)
+		case modeSelect:
+			return m.updateSelect(msg, p)
+		case modeMultiSelect:
+			return m.updateMultiSelect(msg, p)
+		case modeBoolean:
+			return m.updateBoolean(msg, p)
+		}
 	}
 
-	form, cmd := m.form.Update(msg)
-	if f, ok := form.(*huh.Form); ok {
-		m.form = f
+	// Forward to textinput for cursor blink etc.
+	if m.current < len(m.params) && m.fieldMode(m.params[m.current]) == modeTextInput {
+		var cmd tea.Cmd
+		m.input, cmd = m.input.Update(msg)
+		return m, cmd
 	}
 
-	if m.form.State == huh.StateCompleted {
+	return m, nil
+}
+
+func (m Model) updateTextInput(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case msg.Code == tea.KeyEnter:
+		val := strings.TrimSpace(m.input.Value())
+		p := m.params[m.current]
+		if p.Required && val == "" {
+			m.err = "required field"
+			return m, nil
+		}
+		if p.Type == domain.ParamInteger {
+			for _, c := range val {
+				if c < '0' || c > '9' {
+					m.err = "must be an integer"
+					return m, nil
+				}
+			}
+		}
+		m.values[p.Name] = val
+		return m.advance()
+	case msg.String() == "shift+tab":
+		return m.goBack()
+	default:
+		m.err = ""
+		var cmd tea.Cmd
+		m.input, cmd = m.input.Update(msg)
+		return m, cmd
+	}
+}
+
+func (m Model) updateSelect(msg tea.KeyPressMsg, p domain.Parameter) (Model, tea.Cmd) {
+	switch {
+	case msg.Code == tea.KeyUp || msg.Text == "k":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+	case msg.Code == tea.KeyDown || msg.Text == "j":
+		if m.cursor < len(p.Options)-1 {
+			m.cursor++
+		}
+	case msg.Code == tea.KeyEnter:
+		if m.cursor < len(p.Options) {
+			m.values[p.Name] = p.Options[m.cursor]
+			return m.advance()
+		}
+	case msg.String() == "shift+tab":
+		return m.goBack()
+	}
+	return m, nil
+}
+
+func (m Model) updateMultiSelect(msg tea.KeyPressMsg, p domain.Parameter) (Model, tea.Cmd) {
+	switch {
+	case msg.Code == tea.KeyUp || msg.Text == "k":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+	case msg.Code == tea.KeyDown || msg.Text == "j":
+		if m.cursor < len(p.Options)-1 {
+			m.cursor++
+		}
+	case msg.Text == " ":
+		m.checked[m.cursor] = !m.checked[m.cursor]
+	case msg.Code == tea.KeyEnter:
+		var selected []string
+		for i, o := range p.Options {
+			if m.checked[i] {
+				selected = append(selected, o)
+			}
+		}
+		m.values[p.Name] = strings.Join(selected, ", ")
+		return m.advance()
+	case msg.String() == "shift+tab":
+		return m.goBack()
+	}
+	return m, nil
+}
+
+func (m Model) updateBoolean(msg tea.KeyPressMsg, p domain.Parameter) (Model, tea.Cmd) {
+	switch {
+	case msg.Code == tea.KeyLeft || msg.Text == "h" || msg.Code == tea.KeyTab:
+		m.cursor = 0 // Yes
+	case msg.Code == tea.KeyRight || msg.Text == "l":
+		m.cursor = 1 // No
+	case msg.Text == "y" || msg.Text == "Y":
+		m.values[p.Name] = "true"
+		return m.advance()
+	case msg.Text == "n" || msg.Text == "N":
+		m.values[p.Name] = "false"
+		return m.advance()
+	case msg.Code == tea.KeyEnter:
+		if m.cursor == 0 {
+			m.values[p.Name] = "true"
+		} else {
+			m.values[p.Name] = "false"
+		}
+		return m.advance()
+	case msg.String() == "shift+tab":
+		return m.goBack()
+	}
+	return m, nil
+}
+
+func (m Model) advance() (Model, tea.Cmd) {
+	next := m.current + 1
+	if next >= len(m.params) {
+		// All fields completed — submit.
 		return m, func() tea.Msg {
 			return WizardSubmitMsg{
 				Runbook: m.runbook,
@@ -108,26 +258,192 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 		}
 	}
-
-	if m.form.State == huh.StateAborted {
-		return m, func() tea.Msg { return WizardCancelMsg{} }
+	m.initField(next)
+	if m.fieldMode(m.params[next]) == modeTextInput {
+		return m, m.input.Focus()
 	}
+	return m, nil
+}
 
-	return m, cmd
+func (m Model) goBack() (Model, tea.Cmd) {
+	if m.current == 0 {
+		return m, nil
+	}
+	prev := m.current - 1
+	// Remove the previous value so it can be re-entered.
+	delete(m.values, m.params[prev].Name)
+	m.initField(prev)
+	if m.fieldMode(m.params[prev]) == modeTextInput {
+		return m, m.input.Focus()
+	}
+	return m, nil
+}
+
+// FooterHints returns context-sensitive keybinding hints for the current field.
+func (m Model) FooterHints() string {
+	if len(m.params) == 0 || m.current >= len(m.params) {
+		return ""
+	}
+	p := m.params[m.current]
+	switch m.fieldMode(p) {
+	case modeSelect:
+		return "↑↓ navigate  enter select  esc cancel"
+	case modeMultiSelect:
+		return "Space toggle  Up/Down navigate  Enter confirm"
+	case modeBoolean:
+		return "← → toggle  enter confirm  esc cancel"
+	default:
+		hint := "enter next"
+		if m.current > 0 {
+			hint += "  shift+tab back"
+		}
+		return hint + "  esc cancel"
+	}
 }
 
 func (m Model) View() string {
+	if len(m.params) == 0 {
+		return ""
+	}
+
 	var b strings.Builder
 
-	cmd := BuildCommand(m.runbook, m.mergedParams())
-	b.WriteString("  $ " + cmd + "\n")
-	b.WriteString(strings.Repeat("─", 60) + "\n")
+	// --- Header: $ dops run <id> ---
+	cmd := BuildCommand(m.runbook, m.collectParams())
+	b.WriteString(m.renderHeader(cmd))
+	b.WriteString("\n")
 
-	if m.form != nil {
-		b.WriteString(m.form.View())
+	// --- Completed fields ---
+	for i := 0; i < m.current; i++ {
+		p := m.params[i]
+		val := m.values[p.Name]
+		if p.Secret {
+			val = "****"
+		}
+		b.WriteString(m.renderCompletedField(p.Name, val))
+		b.WriteString("\n")
+	}
+
+	if m.current > 0 {
+		b.WriteString("\n")
+	}
+
+	// --- Current field ---
+	p := m.params[m.current]
+	b.WriteString(m.renderCurrentField(p))
+
+	// --- Error ---
+	if m.err != "" {
+		b.WriteString("\n")
+		b.WriteString(m.renderError(m.err))
+	}
+
+	b.WriteString("\n\n")
+	b.WriteString(m.renderFooter())
+
+	return b.String()
+}
+
+func (m Model) renderHeader(cmd string) string {
+	successStyle := lipgloss.NewStyle()
+	textStyle := lipgloss.NewStyle().Bold(true)
+	if m.styles != nil {
+		successStyle = m.styles.Success
+		textStyle = m.styles.Text.Bold(true)
+	}
+	return successStyle.Render("$") + " " + textStyle.Render(cmd) + "\n"
+}
+
+func (m Model) renderCompletedField(name, value string) string {
+	mutedStyle := lipgloss.NewStyle()
+	if m.styles != nil {
+		mutedStyle = m.styles.TextMuted
+	}
+	// Left-align name in a 14-char column.
+	padded := name + ":"
+	if len(padded) < 15 {
+		padded += strings.Repeat(" ", 15-len(padded))
+	} else {
+		padded += " "
+	}
+	return mutedStyle.Render(padded + value)
+}
+
+func (m Model) renderCurrentField(p domain.Parameter) string {
+	primaryStyle := lipgloss.NewStyle().Bold(true)
+	textStyle := lipgloss.NewStyle()
+	if m.styles != nil {
+		primaryStyle = m.styles.Primary.Bold(true)
+		textStyle = m.styles.Text
+	}
+
+	var b strings.Builder
+	b.WriteString(primaryStyle.Render(p.Name+":") + "\n\n")
+
+	switch m.fieldMode(p) {
+	case modeTextInput:
+		b.WriteString(textStyle.Render(m.input.View()))
+
+	case modeSelect:
+		for i, opt := range p.Options {
+			if i == m.cursor {
+				b.WriteString(primaryStyle.Render("> ") + textStyle.Render(opt) + "\n")
+			} else {
+				b.WriteString("  " + textStyle.Render(opt) + "\n")
+			}
+		}
+
+	case modeMultiSelect:
+		for i, opt := range p.Options {
+			check := "[ ]"
+			if m.checked[i] {
+				check = "[x]"
+			}
+			if i == m.cursor {
+				b.WriteString(primaryStyle.Render("> "+check) + " " + textStyle.Render(opt) + "\n")
+			} else {
+				b.WriteString("  " + check + " " + textStyle.Render(opt) + "\n")
+			}
+		}
+
+	case modeBoolean:
+		yesStyle := lipgloss.NewStyle()
+		noStyle := lipgloss.NewStyle()
+		if m.styles != nil {
+			if m.cursor == 0 {
+				yesStyle = lipgloss.NewStyle().
+					Background(m.styles.Primary.GetForeground()).
+					Foreground(m.styles.Background.GetForeground()).
+					Padding(0, 1)
+				noStyle = m.styles.TextMuted.Padding(0, 1)
+			} else {
+				yesStyle = m.styles.TextMuted.Padding(0, 1)
+				noStyle = lipgloss.NewStyle().
+					Background(m.styles.Primary.GetForeground()).
+					Foreground(m.styles.Background.GetForeground()).
+					Padding(0, 1)
+			}
+		}
+		b.WriteString("  " + yesStyle.Render("Yes") + "  " + noStyle.Render("No") + "\n")
 	}
 
 	return b.String()
+}
+
+func (m Model) renderError(msg string) string {
+	errStyle := lipgloss.NewStyle()
+	if m.styles != nil {
+		errStyle = m.styles.Error
+	}
+	return errStyle.Render("! " + msg)
+}
+
+func (m Model) renderFooter() string {
+	mutedStyle := lipgloss.NewStyle()
+	if m.styles != nil {
+		mutedStyle = m.styles.TextMuted
+	}
+	return mutedStyle.Render(m.FooterHints())
 }
 
 func (m Model) collectParams() map[string]string {
@@ -136,15 +452,11 @@ func (m Model) collectParams() map[string]string {
 		result[k] = v
 	}
 	for k, v := range m.values {
-		if v != nil && *v != "" {
-			result[k] = *v
+		if v != "" {
+			result[k] = v
 		}
 	}
 	return result
-}
-
-func (m Model) mergedParams() map[string]string {
-	return m.collectParams()
 }
 
 // ShouldSkip returns true when all required parameters are already resolved.
@@ -161,7 +473,6 @@ func ShouldSkip(params []domain.Parameter, resolved map[string]string) bool {
 }
 
 // MissingParams returns parameters that are not yet resolved.
-// Includes required params that have no value, and optional params that have no value.
 func MissingParams(params []domain.Parameter, resolved map[string]string) []domain.Parameter {
 	var missing []domain.Parameter
 	for _, p := range params {

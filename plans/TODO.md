@@ -30,9 +30,5 @@ All planned features and text selection have been implemented.
 
 ## Future Enhancements
 
-- [ ] Selection highlighting during drag without terminal native overlay (requires terminal-level support)
-- [ ] MCP server integration
+- [ ] MCP server integration (stdio/http transport)
 - [ ] Additional input types (multi_select, file_path, resource_id) in wizard
-- [ ] Sidebar folder compaction (single-child chains → "parent / child")
-- [ ] Spinner during execution
-- [ ] Update check banner

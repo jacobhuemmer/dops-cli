@@ -8,10 +8,13 @@ import (
 type ParameterType string
 
 const (
-	ParamString  ParameterType = "string"
-	ParamBoolean ParameterType = "boolean"
-	ParamInteger ParameterType = "integer"
-	ParamSelect  ParameterType = "select"
+	ParamString      ParameterType = "string"
+	ParamBoolean     ParameterType = "boolean"
+	ParamInteger     ParameterType = "integer"
+	ParamSelect      ParameterType = "select"
+	ParamMultiSelect ParameterType = "multi_select"
+	ParamFilePath    ParameterType = "file_path"
+	ParamResourceID  ParameterType = "resource_id"
 )
 
 type Parameter struct {

@@ -509,6 +509,7 @@ func (m App) openWizard() (tea.Model, tea.Cmd) {
 	}
 
 	wiz := wizard.New(*m.selected, *m.selCat, resolved)
+	wiz.SetStyles(m.deps.Styles)
 	m.wizard = &wiz
 	m.state = stateWizard
 	return m, wiz.Init()
@@ -726,7 +727,20 @@ func (m App) viewWizardOverlay() tea.View {
 		overlayW = 50
 	}
 
+	// Left accent bar only — thick border on left side, panel background.
+	var panelBg, primaryFg color.Color
+	panelBg = lipgloss.NoColor{}
+	primaryFg = lipgloss.NoColor{}
+	if m.deps.Styles != nil {
+		panelBg = m.deps.Styles.BackgroundPanel.GetForeground()
+		primaryFg = m.deps.Styles.Primary.GetForeground()
+	}
+
 	overlay := lipgloss.NewStyle().
+		Border(lipgloss.ThickBorder(), false, false, false, true).
+		BorderForeground(primaryFg).
+		Background(panelBg).
+		Padding(1, 2).
 		Width(overlayW).
 		Render(wizView)
 
