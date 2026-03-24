@@ -420,13 +420,15 @@ func (m Model) View() string {
 	headerBox := lipgloss.NewStyle().Width(cw).Render(headerLine)
 
 	// === Footer: 1 row — always shows log path ===
-	footerFg := mutedFg
-	if m.copiedFooter {
-		footerFg = successFg // entire line flashes green
-	}
 	var footerLine string
 	if m.logPath != "" && !m.searching && !m.navigating {
-		footerLine = lipgloss.NewStyle().Foreground(footerFg).Render("Saved to " + m.logPath)
+		label := lipgloss.NewStyle().Foreground(mutedFg).Render("Saved to ")
+		pathFg := mutedFg
+		if m.copiedFooter {
+			pathFg = successFg // only path flashes green on copy
+		}
+		path := lipgloss.NewStyle().Foreground(pathFg).Render(m.logPath)
+		footerLine = label + path
 	}
 	footerBox := lipgloss.NewStyle().Width(cw).Render(footerLine)
 
