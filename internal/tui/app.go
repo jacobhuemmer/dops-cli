@@ -270,6 +270,10 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case output.CopiedFooterFlashMsg:
 		m.output.SetCopiedFooter(false)
 		return m, nil
+
+	case output.CopyFlashExpiredMsg:
+		m.output, _ = m.output.Update(msg)
+		return m, nil
 	}
 
 	// Switch focus on hover: any mouse event over a pane focuses it.

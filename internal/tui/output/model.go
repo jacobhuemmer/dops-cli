@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
+	"time"
 
 	"dops/internal/theme"
 
@@ -34,7 +35,8 @@ type Model struct {
 	matchIndex   int
 	copiedHeader bool
 	copiedFooter bool
-	commandLineH int // wrapped command line height in rows
+	copyFlash    bool // show "✓ Copied" badge in log top-right
+	commandLineH int  // wrapped command line height in rows
 	focused      bool
 	selection    TextSelection
 	styles       *theme.Styles
@@ -217,7 +219,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case tea.MouseReleaseMsg:
 		if m.selection.Active {
-			// Update focus to final release position.
 			logTop := 3
 			logCol := 3
 			m.selection.FocusX = max(0, msg.X-logCol)
@@ -226,10 +227,20 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if !m.selection.IsEmpty() {
 				text := m.selection.ExtractText(m.visibleLineTexts())
 				if text != "" {
-					return m, tea.SetClipboard(text)
+					m.copyFlash = true
+					return m, tea.Batch(
+						tea.SetClipboard(text),
+						tea.Tick(1500*time.Millisecond, func(time.Time) tea.Msg {
+							return CopyFlashExpiredMsg{}
+						}),
+					)
 				}
 			}
 		}
+		return m, nil
+
+	case CopyFlashExpiredMsg:
+		m.copyFlash = false
 		return m, nil
 	}
 
@@ -474,7 +485,22 @@ func (m Model) View() string {
 	needsScrollbar := len(m.lines) > visibleH
 
 	logLines := make([]string, 0, logH+logTopPad)
-	logLines = append(logLines, blankLine) // top padding inside log
+	if m.copyFlash {
+		// Show "✓ Copied" badge right-aligned on top padding row.
+		badge := lipgloss.NewStyle().
+			Background(bgElemColor).
+			Foreground(successFg).
+			Render("✓ Copied")
+		badgeW := ansi.StringWidth(badge)
+		pad := logW - badgeW
+		if pad > 0 {
+			logLines = append(logLines, logContentStyle.Render(strings.Repeat(" ", pad))+badge)
+		} else {
+			logLines = append(logLines, badge)
+		}
+	} else {
+		logLines = append(logLines, blankLine) // top padding inside log
+	}
 	for i := range visibleH {
 		idx := yOffset + i
 		if idx < len(m.lines) {

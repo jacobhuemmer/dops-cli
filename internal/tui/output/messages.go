@@ -12,3 +12,4 @@ type ExecutionDoneMsg struct {
 
 type CopiedHeaderFlashMsg struct{}
 type CopiedFooterFlashMsg struct{}
+type CopyFlashExpiredMsg struct{}
