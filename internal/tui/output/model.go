@@ -444,8 +444,8 @@ func (m Model) View() string {
 	logStderrStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(stderrFg)
 	logSuccessStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(successFg)
 	thumbStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(primaryFg)
-	// Selection highlight: inverted colors.
-	selectionStyle := lipgloss.NewStyle().Background(textFg).Foreground(bgElemColor)
+	// Selection highlight: primary background with dark foreground (matches legacy).
+	selectionStyle := lipgloss.NewStyle().Background(primaryFg).Foreground(bgElemColor)
 
 	// Header(1) + gap(1) + logTopPad(1) + visibleLines + logBottomPad(1) + gap(1) + Footer(1) = height.
 	logTopPad := 1
@@ -499,21 +499,11 @@ func (m Model) View() string {
 				visible = ansi.Truncate(raw, lineW, "")
 			}
 
-			// Apply selection highlighting if this line is within the selection.
-			visibleRow := i
-			if m.selection.Active && !m.selection.IsEmpty() && m.isRowSelected(visibleRow) {
-				highlighted := m.highlightLine(visible, visibleRow, logContentStyle, selectionStyle)
-				lineText := "  " + highlighted
-				// Pad manually — don't wrap in Width().Render() which strips inner ANSI.
-				pad := logW - ansi.StringWidth(lineText)
-				if pad > 0 {
-					lineText += logContentStyle.Render(strings.Repeat(" ", pad))
-				}
-				logLines = append(logLines, lineText)
-			} else if line.IsStderr {
-				logLines = append(logLines, logStderrStyle.Width(logW).Render("  "+visible))
+			lineText := "  " + visible
+			if line.IsStderr {
+				logLines = append(logLines, logStderrStyle.Width(logW).Render(lineText))
 			} else {
-				logLines = append(logLines, logContentStyle.Width(logW).Render("  "+visible))
+				logLines = append(logLines, logContentStyle.Width(logW).Render(lineText))
 			}
 		} else {
 			logLines = append(logLines, blankLine)
@@ -540,7 +530,8 @@ func (m Model) View() string {
 	gap := lipgloss.NewStyle().Width(cw).Render("")
 
 	inner := lipgloss.JoinVertical(lipgloss.Left, headerBox, gap, logBox, gap, footerBox)
-	return lipgloss.NewStyle().PaddingLeft(padX).PaddingRight(padX).Render(inner)
+	result := lipgloss.NewStyle().PaddingLeft(padX).PaddingRight(padX).Render(inner)
+	return m.highlightSelection(result, selectionStyle)
 }
 
 func (m Model) matchLineSet() map[int]bool {
@@ -551,50 +542,60 @@ func (m Model) matchLineSet() map[int]bool {
 	return set
 }
 
-// isRowSelected returns true if the given visible row is within the selection bounds.
-func (m Model) isRowSelected(visibleRow int) bool {
-	_, startY, _, endY := m.selection.Bounds()
-	return visibleRow >= startY && visibleRow <= endY
-}
-
-// highlightLine applies selection highlighting to a visible line.
-// visibleRow is the 0-based row index within the visible content area.
-// text is the plain text (already truncated/cut for display).
-func (m Model) highlightLine(text string, visibleRow int, normalStyle, hlStyle lipgloss.Style) string {
+// highlightSelection post-processes the rendered output to apply the selection
+// style to the character range covered by the current selection. Uses ANSI-aware
+// Cut to split styled lines, matching the legacy implementation.
+func (m Model) highlightSelection(rendered string, hlStyle lipgloss.Style) string {
 	if !m.selection.Active || m.selection.IsEmpty() {
-		return text
+		return rendered
 	}
 
+	// Selection coordinates are relative to visible log content (row 0 = first
+	// visible line). The rendered output has: header(row 0), gap(row 1),
+	// topPad(row 2), then log content starting at row 3.
+	logStartRow := 3 // offset from rendered output row 0 to first log content row
 	startX, startY, endX, endY := m.selection.Bounds()
-	if visibleRow < startY || visibleRow > endY {
-		return text
+
+	// Shift selection to rendered output coordinates.
+	startY += logStartRow
+	endY += logStartRow
+	// Shift X for the 1-col padding + 2-char indent.
+	padIndent := 3
+	startX += padIndent
+	endX += padIndent
+
+	lines := strings.Split(rendered, "\n")
+	for i := range lines {
+		if i < startY || i > endY {
+			continue
+		}
+
+		lineWidth := ansi.StringWidth(lines[i])
+		if lineWidth == 0 {
+			continue
+		}
+
+		lx := 0
+		rx := lineWidth
+		if i == startY {
+			lx = startX
+		}
+		if i == endY {
+			rx = min(lineWidth, endX+1)
+		}
+		if lx >= rx || lx >= lineWidth {
+			continue
+		}
+
+		before := ansi.Cut(lines[i], 0, lx)
+		selected := ansi.Cut(lines[i], lx, rx)
+		after := ansi.Cut(lines[i], rx, lineWidth)
+
+		plain := ansi.Strip(selected)
+		lines[i] = before + "\x1b[0m" + hlStyle.Render(plain) + after
 	}
 
-	runes := []rune(text)
-	lineLen := len(runes)
-	if lineLen == 0 {
-		return text
-	}
-
-	// Determine the selected range within this line.
-	lx := 0
-	rx := lineLen
-	if visibleRow == startY {
-		lx = max(0, startX)
-	}
-	if visibleRow == endY {
-		rx = min(lineLen, endX+1)
-	}
-	if lx >= rx || lx >= lineLen {
-		return text
-	}
-	rx = min(rx, lineLen)
-
-	before := string(runes[:lx])
-	selected := string(runes[lx:rx])
-	after := string(runes[rx:])
-
-	return normalStyle.Render(before) + hlStyle.Render(selected) + normalStyle.Render(after)
+	return strings.Join(lines, "\n")
 }
 
 // renderScrollbar builds the scrollbar column with a pill-shaped thumb.
