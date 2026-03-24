@@ -1,27 +1,22 @@
 # dops-cli — Remaining Feature TODO
 
-## High Priority
+All features from the parity audit have been implemented.
 
-- [ ] **Risk confirmation gates** — Execution should require confirmation based on risk level:
-  - Low: no confirmation
-  - Medium: simple y/N prompt
-  - High: must type the runbook ID
-  - Critical: must type "CONFIRM"
+## Completed (2026-03-23)
 
-- [ ] **Process management (ctrl+x stop)** — Allow stopping a running execution with ctrl+x. Send SIGKILL with WaitDelay. Update output footer with exit status.
+- [x] **Risk confirmation gates** — Low=skip, Medium=y/N, High=type ID, Critical=type CONFIRM
+- [x] **Process management (ctrl+x stop)** — Cancellable context, SIGKILL with process group, 2s WaitDelay
+- [x] **Help overlay (? key)** — Context-aware keybindings based on focused pane
+- [x] **Catalog management CLI** — `dops catalog list/add/remove/install/update`
+- [x] **Dry-run mode** — Shows resolved command and env without executing
+- [x] **Text selection and clipboard** — Click/drag selection, y to copy, OSC 52 fallback
+- [x] **OSC 52 clipboard fallback** — For SSH/remote terminal sessions
 
-## Medium Priority
+## Future Enhancements
 
-- [ ] **Text selection (click/drag to copy)** — Click and drag in the output log to select text. `y` key to copy selection. Section-aware extraction (header/log/footer). Selection highlighting.
-
-- [ ] **Catalog management CLI** — `dops catalog install <url>`, `dops catalog add`, `dops catalog remove`, `dops catalog update`, `dops catalog list`. Git-based catalog installs.
-
-- [ ] **Help overlay (? key)** — Context-aware keybinding help overlay. Shows different bindings per focused pane.
-
-## Low Priority
-
-- [ ] **OSC 52 clipboard fallback** — Fall back to OSC 52 terminal escape for clipboard in SSH/remote sessions when native clipboard is unavailable.
-
-- [ ] **MCP server integration** — MCP server with tools, resources, schema, progress, and watcher support.
-
-- [ ] **Dry-run mode** — `--dry-run` flag that shows what would execute without running the script.
+- [ ] Selection highlighting in the output view (visual feedback during drag)
+- [ ] MCP server integration
+- [ ] Additional input types (multi_select, file_path, resource_id) in wizard
+- [ ] Sidebar folder compaction (single-child chains → "parent / child")
+- [ ] Spinner during execution
+- [ ] Update check banner
