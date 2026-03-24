@@ -434,27 +434,28 @@ func (m Model) View() string {
 	tw := max(1, cw-3) // line width for log text (cw - 2 indent - 1 scrollbar)
 
 	// === Header: 1 row — always shows command ===
-	headerStyle := lipgloss.NewStyle().Width(cw)
+	// Brief green flash on click-to-copy, then reverts to normal colors.
+	headerDollarFg := successFg
+	headerCmdFg := textFg
 	if m.copiedHeader {
-		// Background highlight flash on click-to-copy.
-		headerStyle = headerStyle.Background(bgElemColor)
+		headerDollarFg = successFg
+		headerCmdFg = successFg // entire line flashes green
 	}
-	dollar := lipgloss.NewStyle().Foreground(successFg).Render("$")
-	cmd := lipgloss.NewStyle().Foreground(textFg).Render(" " + m.command)
+	dollar := lipgloss.NewStyle().Foreground(headerDollarFg).Render("$")
+	cmd := lipgloss.NewStyle().Foreground(headerCmdFg).Render(" " + m.command)
 	headerLine := ansi.Truncate(dollar+cmd, cw, "")
-	headerBox := headerStyle.Render(headerLine)
+	headerBox := lipgloss.NewStyle().Width(cw).Render(headerLine)
 
 	// === Footer: 1 row — always shows log path ===
-	footerStyle := lipgloss.NewStyle().Width(cw)
+	footerFg := mutedFg
 	if m.copiedFooter {
-		// Background highlight flash on click-to-copy.
-		footerStyle = footerStyle.Background(bgElemColor)
+		footerFg = successFg // entire line flashes green
 	}
 	var footerLine string
 	if m.logPath != "" && !m.searching && !m.navigating {
-		footerLine = lipgloss.NewStyle().Foreground(mutedFg).Render("Saved to " + m.logPath)
+		footerLine = lipgloss.NewStyle().Foreground(footerFg).Render("Saved to " + m.logPath)
 	}
-	footerBox := footerStyle.Render(footerLine)
+	footerBox := lipgloss.NewStyle().Width(cw).Render(footerLine)
 
 	// === Log: fills remaining height ===
 	logContentStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(textFg)
