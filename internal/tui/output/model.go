@@ -434,17 +434,27 @@ func (m Model) View() string {
 	tw := max(1, cw-3) // line width for log text (cw - 2 indent - 1 scrollbar)
 
 	// === Header: 1 row — always shows command ===
+	headerStyle := lipgloss.NewStyle().Width(cw)
+	if m.copiedHeader {
+		// Background highlight flash on click-to-copy.
+		headerStyle = headerStyle.Background(bgElemColor)
+	}
 	dollar := lipgloss.NewStyle().Foreground(successFg).Render("$")
 	cmd := lipgloss.NewStyle().Foreground(textFg).Render(" " + m.command)
 	headerLine := ansi.Truncate(dollar+cmd, cw, "")
-	headerBox := lipgloss.NewStyle().Width(cw).Render(headerLine)
+	headerBox := headerStyle.Render(headerLine)
 
 	// === Footer: 1 row — always shows log path ===
+	footerStyle := lipgloss.NewStyle().Width(cw)
+	if m.copiedFooter {
+		// Background highlight flash on click-to-copy.
+		footerStyle = footerStyle.Background(bgElemColor)
+	}
 	var footerLine string
 	if m.logPath != "" && !m.searching && !m.navigating {
 		footerLine = lipgloss.NewStyle().Foreground(mutedFg).Render("Saved to " + m.logPath)
 	}
-	footerBox := lipgloss.NewStyle().Width(cw).Render(footerLine)
+	footerBox := footerStyle.Render(footerLine)
 
 	// === Log: fills remaining height ===
 	logContentStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(textFg)

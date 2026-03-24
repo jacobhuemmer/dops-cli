@@ -267,6 +267,11 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case output.CopyFlashExpiredMsg:
 		m.output, _ = m.output.Update(msg)
 		return m, nil
+
+	case output.CopiedRegionFlashMsg:
+		m.output.SetCopiedHeader(false)
+		m.output.SetCopiedFooter(false)
+		return m, nil
 	}
 
 	// Switch focus on hover: any mouse event over a pane focuses it.
@@ -1010,16 +1015,25 @@ func (m *App) handleOutputClick(msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
-	// Use the unified border badge for all copy feedback.
+	// Background highlight on the clicked region + border badge.
+	switch region {
+	case "header":
+		m.output.SetCopiedHeader(true)
+	case "footer":
+		m.output.SetCopiedFooter(true)
+	}
 	m.output.SetCopyFlash(true)
 	return tea.Batch(
 		tea.SetClipboard(copyText),
+		// Short highlight flash (500ms).
+		tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+			return output.CopiedRegionFlashMsg{}
+		}),
+		// Badge stays longer (1.5s).
 		tea.Tick(1500*time.Millisecond, func(time.Time) tea.Msg {
 			return output.CopyFlashExpiredMsg{}
 		}),
 	)
-
-	return nil
 }
 
 func appFooterState(s viewState) footer.State {

@@ -13,3 +13,4 @@ type ExecutionDoneMsg struct {
 type CopiedHeaderFlashMsg struct{}
 type CopiedFooterFlashMsg struct{}
 type CopyFlashExpiredMsg struct{}
+type CopiedRegionFlashMsg struct{} // clears header/footer background highlight
