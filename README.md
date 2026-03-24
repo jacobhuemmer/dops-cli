@@ -116,6 +116,20 @@ dops
 
 4. **Navigate** with arrow keys, **run** with Enter, **scroll** output with Up/Down, **search** with `/`.
 
+## Parameter Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `string` | Free text input | endpoints, names, paths |
+| `boolean` | Yes/No toggle | dry_run, verbose |
+| `integer` | Whole number (negative ok) | offsets, deltas |
+| `number` | Non-negative whole number (0+) | ports, replicas, days, timeout |
+| `float` | Decimal number | percentages, thresholds |
+| `select` | Single selection from options | environment, region |
+| `multi_select` | Multiple selections from options | features, policies |
+| `file_path` | File path input | config files |
+| `resource_id` | Resource identifier | ARNs, URIs |
+
 ## MCP Integration
 
 ### Claude Code

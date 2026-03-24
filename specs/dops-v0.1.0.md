@@ -191,12 +191,17 @@ parameters:
 
 ### 5.3 Parameter Types
 
-| Type | Behavior |
-|---|---|
-| `string` | Free text input |
-| `boolean` | True/false toggle |
-| `integer` | Numeric input |
-| `select` | List selection (requires an `options` field listing valid values) |
+| Type | Behavior | Validation |
+|---|---|---|
+| `string` | Free text input | — |
+| `boolean` | True/false toggle | — |
+| `integer` | Whole number (negative ok) | `strconv.Atoi` — offsets, deltas |
+| `number` | Non-negative whole number (0+) | `strconv.Atoi` + `>= 0` — ports, replicas, days |
+| `float` | Decimal number | `strconv.ParseFloat` — percentages, thresholds |
+| `select` | List selection | requires `options` field |
+| `multi_select` | Checkbox list | requires `options` field, Space to toggle |
+| `file_path` | File path input | — |
+| `resource_id` | Resource identifier input | — |
 
 ---
 
