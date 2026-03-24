@@ -36,6 +36,7 @@ type Model struct {
 	copiedFooter bool
 	commandLineH int // wrapped command line height in rows
 	focused      bool
+	selection    TextSelection
 	styles       *theme.Styles
 }
 
@@ -181,6 +182,28 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return m.updateSearching(msg), nil
 		}
 		return m.updateNormal(msg)
+
+	case tea.MouseClickMsg:
+		// Start selection on click in log area.
+		// Log area starts at row 2 (header + gap) with the top padding.
+		logStartRow := 3 // header(1) + gap(1) + logTopPad(1)
+		if msg.Y >= logStartRow {
+			m.selection.Reset()
+			m.selection.Active = true
+			m.selection.AnchorX = msg.X
+			m.selection.AnchorY = msg.Y - logStartRow
+			m.selection.FocusX = msg.X
+			m.selection.FocusY = msg.Y - logStartRow
+		}
+		return m, nil
+
+	case tea.MouseMotionMsg:
+		if m.selection.Active {
+			logStartRow := 3
+			m.selection.FocusX = msg.X
+			m.selection.FocusY = msg.Y - logStartRow
+		}
+		return m, nil
 	}
 
 	return m.forwardToViewport(msg)
@@ -200,7 +223,18 @@ func (m Model) updateNormal(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		maxScroll := max(0, m.maxLineWidth-tw)
 		m.xOffset = min(m.xOffset+horizontalScrollStep, maxScroll)
 		return m, nil
+	case msg.Text == "y":
+		if m.selection.Active && !m.selection.IsEmpty() {
+			text := m.selection.ExtractText(m.visibleLineTexts())
+			m.selection.Reset()
+			if text != "" {
+				return m, tea.SetClipboard(text)
+			}
+		}
+		return m, nil
 	}
+	// Clear selection on scroll keys.
+	m.selection.Reset()
 	return m.forwardToViewport(msg)
 }
 
@@ -283,6 +317,20 @@ func (m *Model) clearSearch() {
 	m.matchLines = nil
 	m.matchCount = 0
 	m.matchIndex = 0
+}
+
+// visibleLineTexts returns the plain text of currently visible log lines.
+func (m Model) visibleLineTexts() []string {
+	bodyH := m.bodyHeight()
+	yOffset := m.vp.YOffset()
+	result := make([]string, bodyH)
+	for i := range bodyH {
+		idx := yOffset + i
+		if idx < len(m.lines) {
+			result[i] = m.lines[idx].Text
+		}
+	}
+	return result
 }
 
 func (m *Model) scrollToMatch() {
