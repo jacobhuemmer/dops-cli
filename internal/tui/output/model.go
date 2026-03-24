@@ -486,8 +486,11 @@ func (m Model) View() string {
 	needsScrollbar := len(m.lines) > visibleH
 
 	logLines := make([]string, 0, logH+logTopPad)
+	logLines = append(logLines, blankLine) // top padding — always present
+
+	// Badge on the first content row (right-aligned), replaces 1 log line temporarily.
+	var badgeLine string
 	if m.copyFlash {
-		// Replace top padding with the badge — no extra rows, no content shift.
 		badgeText := "Copied to Clipboard!"
 		badge := lipgloss.NewStyle().
 			Background(bgElemColor).
@@ -497,14 +500,17 @@ func (m Model) View() string {
 		rightPad := 1
 		pad := logW - badgeW - rightPad
 		if pad > 0 {
-			logLines = append(logLines, logContentStyle.Render(strings.Repeat(" ", pad))+badge+logContentStyle.Render(" "))
+			badgeLine = logContentStyle.Render(strings.Repeat(" ", pad)) + badge + logContentStyle.Render(" ")
 		} else {
-			logLines = append(logLines, badge)
+			badgeLine = badge
 		}
-	} else {
-		logLines = append(logLines, blankLine) // top padding inside log
 	}
 	for i := range visibleH {
+		// First row: show badge if active (overlays the first log line).
+		if i == 0 && badgeLine != "" {
+			logLines = append(logLines, badgeLine)
+			continue
+		}
 		idx := yOffset + i
 		if idx < len(m.lines) {
 			line := m.lines[idx]
