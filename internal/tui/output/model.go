@@ -185,34 +185,41 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case tea.MouseClickMsg:
 		// Start text selection in the log area.
-		logStartRow := 3 // header(1) + gap(1) + logTopPad(1)
-		if msg.Y >= logStartRow {
+		// Coordinates are output-local (translated by the app).
+		// Log content starts at: padX(1) + header(1) + gap(1) + topPad(1) = row 4
+		// and column padX(1) + indent(2) = col 3.
+		logTop := 4 // padX row offset + header + gap + top pad
+		logCol := 3 // padX col offset + 2-char indent
+		row := msg.Y - logTop
+		col := msg.X - logCol
+		if row >= 0 {
 			m.selection.Reset()
 			m.selection.Active = true
-			m.selection.AnchorX = msg.X
-			m.selection.AnchorY = msg.Y - logStartRow
-			m.selection.FocusX = msg.X
-			m.selection.FocusY = msg.Y - logStartRow
+			m.selection.AnchorX = col
+			m.selection.AnchorY = row
+			m.selection.FocusX = col
+			m.selection.FocusY = row
 		}
 		// Don't return — let it fall through to the viewport for scroll state.
 
 	case tea.MouseMotionMsg:
-		if m.selection.Active {
-			logStartRow := 3
-			m.selection.FocusX = msg.X
-			m.selection.FocusY = msg.Y - logStartRow
+		// Only track drag when a button is held.
+		if m.selection.Active && msg.Button != 0 {
+			logTop := 4
+			logCol := 3
+			m.selection.FocusX = msg.X - logCol
+			m.selection.FocusY = msg.Y - logTop
 		}
 		return m, nil
 
 	case tea.MouseReleaseMsg:
 		if m.selection.Active && !m.selection.IsEmpty() {
 			text := m.selection.ExtractText(m.visibleLineTexts())
-			m.selection.Reset()
 			if text != "" {
+				// Keep selection active for visual highlight.
 				return m, tea.SetClipboard(text)
 			}
 		}
-		m.selection.Reset()
 		return m, nil
 	}
 
@@ -427,6 +434,8 @@ func (m Model) View() string {
 	logStderrStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(stderrFg)
 	logSuccessStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(successFg)
 	thumbStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(primaryFg)
+	// Selection highlight: inverted colors.
+	selectionStyle := lipgloss.NewStyle().Background(textFg).Foreground(bgElemColor)
 
 	// Header(1) + gap(1) + logTopPad(1) + visibleLines + logBottomPad(1) + gap(1) + Footer(1) = height.
 	logTopPad := 1
@@ -480,9 +489,12 @@ func (m Model) View() string {
 				visible = ansi.Truncate(raw, lineW, "")
 			}
 
-			lineText := "  " + visible
-			if line.IsStderr {
-				logLines = append(logLines, logStderrStyle.Width(logW).Render(lineText))
+			// Apply selection highlighting if this line is within the selection.
+			visibleRow := i // row index relative to visible content
+			highlighted := m.highlightLine(visible, visibleRow, logContentStyle, selectionStyle)
+			lineText := "  " + highlighted
+			if line.IsStderr && !m.selection.Active {
+				logLines = append(logLines, logStderrStyle.Width(logW).Render("  "+visible))
 			} else {
 				logLines = append(logLines, logContentStyle.Width(logW).Render(lineText))
 			}
@@ -520,6 +532,46 @@ func (m Model) matchLineSet() map[int]bool {
 		set[idx] = true
 	}
 	return set
+}
+
+// highlightLine applies selection highlighting to a visible line.
+// visibleRow is the 0-based row index within the visible content area.
+// text is the plain text (already truncated/cut for display).
+func (m Model) highlightLine(text string, visibleRow int, normalStyle, hlStyle lipgloss.Style) string {
+	if !m.selection.Active || m.selection.IsEmpty() {
+		return text
+	}
+
+	startX, startY, endX, endY := m.selection.Bounds()
+	if visibleRow < startY || visibleRow > endY {
+		return text
+	}
+
+	runes := []rune(text)
+	lineLen := len(runes)
+	if lineLen == 0 {
+		return text
+	}
+
+	// Determine the selected range within this line.
+	lx := 0
+	rx := lineLen
+	if visibleRow == startY {
+		lx = max(0, startX)
+	}
+	if visibleRow == endY {
+		rx = min(lineLen, endX+1)
+	}
+	if lx >= rx || lx >= lineLen {
+		return text
+	}
+	rx = min(rx, lineLen)
+
+	before := string(runes[:lx])
+	selected := string(runes[lx:rx])
+	after := string(runes[rx:])
+
+	return normalStyle.Render(before) + hlStyle.Render(selected) + normalStyle.Render(after)
 }
 
 // renderScrollbar builds the scrollbar column with a pill-shaped thumb.
