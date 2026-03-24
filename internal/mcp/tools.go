@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"dops/internal/adapters"
+
 	"dops/internal/domain"
 	"dops/internal/executor"
 	"dops/internal/vars"
@@ -26,6 +28,7 @@ type ToolResult struct {
 }
 
 // HandleToolCall executes a runbook and returns a truncated result.
+// The optional onProgress callback receives batched output during execution.
 func HandleToolCall(
 	ctx context.Context,
 	rb domain.Runbook,
@@ -33,6 +36,7 @@ func HandleToolCall(
 	cfg *domain.Config,
 	runner executor.Runner,
 	args map[string]any,
+	onProgress ProgressCallback,
 ) (*ToolResult, error) {
 	// Validate risk confirmation.
 	if err := validateRiskConfirmation(rb, args); err != nil {
@@ -58,14 +62,26 @@ func HandleToolCall(
 		env[strings.ToUpper(k)] = v
 	}
 
-	// Execute.
+	// Create log file.
+	lw := adapters.NewLogWriter("/tmp")
+	logPath := ""
+	if lp, err := lw.Create(cat.Name, rb.Name, time.Now()); err == nil {
+		logPath = lp
+	}
+
+	// Execute with progress streaming.
 	start := time.Now()
 	lines, errs := runner.Run(ctx, scriptPath, env)
 
+	pw := NewProgressWriter(defaultBatchSize, onProgress)
 	var allLines []string
 	for line := range lines {
 		allLines = append(allLines, line.Text)
+		pw.Write([]byte(line.Text + "\n"))
+		lw.WriteLine(line.Text)
 	}
+	pw.Flush()
+	lw.Close()
 
 	err := <-errs
 	duration := time.Since(start)
@@ -94,6 +110,7 @@ func HandleToolCall(
 	return &ToolResult{
 		ExitCode:    exitCode,
 		Duration:    duration.Round(time.Millisecond).String(),
+		LogPath:     logPath,
 		OutputLines: len(allLines),
 		Output:      strings.Join(output, "\n"),
 		Summary:     summary,

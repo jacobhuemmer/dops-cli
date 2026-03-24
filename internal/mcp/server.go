@@ -88,7 +88,7 @@ func (s *Server) makeToolHandler(rb domain.Runbook, cat domain.Catalog) func(con
 			return mkerr("invalid arguments: " + err.Error()), nil
 		}
 
-		result, err := HandleToolCall(ctx, rb, cat, s.cfg, s.runner, args)
+		result, err := HandleToolCall(ctx, rb, cat, s.cfg, s.runner, args, nil /* TODO: wire progress notifications */)
 		if err != nil {
 			return mkerr(err.Error()), nil
 		}
