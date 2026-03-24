@@ -78,6 +78,7 @@ type AppDeps struct {
 	Config     *domain.Config
 	Catalogs   []catalog.CatalogWithRunbooks
 	AltScreen  bool
+	DryRun     bool
 	ProgramRef *ProgramRef
 }
 
@@ -385,6 +386,23 @@ func (m App) startExecution(rb domain.Runbook, cat domain.Catalog, params map[st
 
 	catPath := expandTilde(cat.Path)
 	scriptPath := filepath.Join(catPath, rb.Name, rb.Script)
+
+	// Dry-run: show resolved command and environment without executing.
+	if m.deps.DryRun {
+		m.output, _ = m.output.Update(output.OutputLineMsg{Text: "[DRY RUN] Would execute:"})
+		m.output, _ = m.output.Update(output.OutputLineMsg{Text: fmt.Sprintf("  Script: %s", scriptPath)})
+		m.output, _ = m.output.Update(output.OutputLineMsg{Text: ""})
+		if len(params) > 0 {
+			m.output, _ = m.output.Update(output.OutputLineMsg{Text: "  Environment:"})
+			for k, v := range params {
+				m.output, _ = m.output.Update(output.OutputLineMsg{
+					Text: fmt.Sprintf("    %s=%s", strings.ToUpper(k), v),
+				})
+			}
+		}
+		m.output, _ = m.output.Update(output.ExecutionDoneMsg{})
+		return m, nil
+	}
 
 	var logPath string
 	if m.deps.LogWriter != nil {
