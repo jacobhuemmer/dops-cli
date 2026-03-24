@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -118,14 +117,7 @@ func HandleToolCall(
 }
 
 func expandTilde(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return path
-		}
-		return filepath.Join(home, path[2:])
-	}
-	return path
+	return adapters.ExpandHome(path)
 }
 
 func validateRiskConfirmation(rb domain.Runbook, args map[string]any) error {

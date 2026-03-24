@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
+	"dops/internal/adapters"
 	"dops/internal/domain"
 
 	"gopkg.in/yaml.v3"
@@ -125,14 +125,7 @@ func (l *DiskCatalogLoader) loadRunbook(path string) (*domain.Runbook, error) {
 }
 
 func expandHome(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return path
-		}
-		return filepath.Join(home, path[2:])
-	}
-	return path
+	return adapters.ExpandHome(path)
 }
 
 var _ CatalogLoader = (*DiskCatalogLoader)(nil)

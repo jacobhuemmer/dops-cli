@@ -200,12 +200,5 @@ func executeScript(cmd *cobra.Command, scriptPath string, env map[string]string,
 }
 
 func expandHome(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return path
-		}
-		return filepath.Join(home, path[2:])
-	}
-	return path
+	return adapters.ExpandHome(path)
 }

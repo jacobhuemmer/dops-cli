@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image/color"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -770,14 +769,7 @@ func (m App) viewPaletteOverlay() tea.View {
 }
 
 func expandTilde(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return path
-		}
-		return filepath.Join(home, path[2:])
-	}
-	return path
+	return adapters.ExpandHome(path)
 }
 
 // clamp returns v if v >= min, otherwise min.

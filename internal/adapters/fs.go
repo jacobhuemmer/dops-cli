@@ -3,6 +3,8 @@ package adapters
 import (
 	"io/fs"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 type FileSystem interface {
@@ -37,4 +39,16 @@ func (f *OSFileSystem) MkdirAll(path string, perm fs.FileMode) error {
 
 func (f *OSFileSystem) Stat(path string) (os.FileInfo, error) {
 	return os.Stat(path)
+}
+
+// ExpandHome replaces a leading "~/" with the user's home directory.
+func ExpandHome(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return path
+		}
+		return filepath.Join(home, path[2:])
+	}
+	return path
 }
