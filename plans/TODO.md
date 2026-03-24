@@ -1,7 +1,5 @@
 # dops-cli — Remaining Feature TODO
 
-All planned features and text selection have been implemented.
-
 ## Completed
 
 ### 2026-03-23 — Output Pane Refinement
@@ -28,7 +26,16 @@ All planned features and text selection have been implemented.
 - [x] Click-to-copy green flash on header/footer
 - [x] Search UI ("Search:" prompt, navigation hints)
 
+### 2026-03-24 — Wizard Redesign
+- [x] Custom wizard replacing Huh form (field-by-field progression)
+- [x] Left accent bar + panel background overlay style
+- [x] Per-type rendering (select, multi_select, boolean, text, password)
+- [x] Context-sensitive footer hints
+- [x] Parameter persistence: "Save for future runs?" per-field (default No)
+- [x] Pre-fill saved values, sensitive fields show bullet dots
+- [x] New parameter types (multi_select, file_path, resource_id)
+- [x] Command header only shows overridden params (not config defaults)
+
 ## Future Enhancements
 
 - [ ] MCP server integration (stdio/http transport)
-- [ ] Additional input types (multi_select, file_path, resource_id) in wizard
