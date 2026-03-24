@@ -76,7 +76,7 @@ Implemented remaining feature items and refined the text selection/clipboard sys
 - **Rendered view is source of truth** for character positions
 - Highlight and extraction both use `viewNormal().Content` split into lines
 - `outputPaneBounds()` computes exact text area in terminal-absolute space
-- Same coordinate space as `handleOutputClick` for behavioral parity
+- Same coordinate space as `handleOutputClick` for consistency
 
 ### Mouse Event Routing
 - `MouseModeCellMotion` for all views

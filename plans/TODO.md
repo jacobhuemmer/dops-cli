@@ -1,6 +1,6 @@
 # dops-cli — Remaining Feature TODO
 
-All parity features and text selection have been implemented.
+All planned features and text selection have been implemented.
 
 ## Completed
 
@@ -16,7 +16,7 @@ All parity features and text selection have been implemented.
 - [x] Terminal background from theme
 - [x] Layout spacing and padding
 
-### 2026-03-24 — Feature Parity & Selection
+### 2026-03-24 — Features & Selection
 - [x] Risk confirmation gates (High=y/N, Critical=type ID)
 - [x] Process management (ctrl+x stop with SIGKILL)
 - [x] Help overlay (? key, context-aware)

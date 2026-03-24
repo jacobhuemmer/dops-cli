@@ -1,5 +1,5 @@
 # dops — Developer Operations TUI
-### Implementation Spec · Handoff document for AI-assisted implementation
+### Implementation Spec · v0.1.0
 
 ---
 
