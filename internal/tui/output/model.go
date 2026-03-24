@@ -629,12 +629,12 @@ func (m Model) highlightSelection(rendered string, hlStyle lipgloss.Style, logFi
 		// Middle rows: full width within log bounds.
 		var lx, rx int
 		if i == startY && i == endY {
-			// Single-line selection.
-			lx = max(startX, logLeftCol)
+			// Single-line selection: exact click-to-release range.
+			lx = startX
 			rx = min(logRightCol, min(lineWidth, endX+1))
 		} else if i == startY {
 			// First row of multi-line: from click to right edge.
-			lx = max(startX, logLeftCol)
+			lx = startX
 			rx = min(lineWidth, logRightCol)
 		} else if i == endY {
 			// Last row of multi-line: from left edge to release.
