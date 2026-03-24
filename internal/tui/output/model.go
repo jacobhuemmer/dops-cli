@@ -90,6 +90,7 @@ func (m Model) Command() string        { return m.command }
 func (m Model) LogPath() string        { return m.logPath }
 func (m Model) CopyFlash() bool         { return m.copyFlash }
 func (m *Model) SetCopyFlash(v bool)    { m.copyFlash = v }
+func (m Model) Selection() TextSelection { return m.selection }
 func (m *Model) SetCopiedHeader(v bool) { m.copiedHeader = v }
 func (m *Model) SetCopiedFooter(v bool) { m.copiedFooter = v }
 
@@ -446,8 +447,6 @@ func (m Model) View() string {
 	logStderrStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(stderrFg)
 	logSuccessStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(successFg)
 	thumbStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(primaryFg)
-	// Selection highlight: primary background with dark foreground (matches legacy).
-	selectionStyle := lipgloss.NewStyle().Background(primaryFg).Foreground(bgElemColor)
 
 	// Header(1) + gap(1) + logTopPad(1) + visibleLines + logBottomPad(1) + gap(1) + Footer(1) = height.
 	logTopPad := 1
@@ -532,14 +531,7 @@ func (m Model) View() string {
 	gap := lipgloss.NewStyle().Width(cw).Render("")
 
 	inner := lipgloss.JoinVertical(lipgloss.Left, headerBox, gap, logBox, gap, footerBox)
-	result := lipgloss.NewStyle().PaddingLeft(padX).PaddingRight(padX).Render(inner)
-
-	// Log content bounds in rendered-output coordinates for confining highlight.
-	logFirstRow := 3           // header(0) + gap(1) + topPad(2) → content starts at 3
-	logLastRow := logFirstRow + visibleH - 1
-	logLeftCol := padX         // left padding
-	logRightCol := padX + logW // content width (excludes scrollbar)
-	return m.highlightSelection(result, selectionStyle, logFirstRow, logLastRow, logLeftCol, logRightCol)
+	return lipgloss.NewStyle().PaddingLeft(padX).PaddingRight(padX).Render(inner)
 }
 
 func (m Model) matchLineSet() map[int]bool {
@@ -589,75 +581,6 @@ func (m Model) extractSelectedText() string {
 	}
 
 	return strings.Join(result, "\n")
-}
-
-// highlightSelection post-processes the rendered output to apply the selection
-// style, confined within the log pane bounds (logFirstRow..logLastRow,
-// logLeftCol..logRightCol). Uses ANSI-aware Cut to split styled lines.
-func (m Model) highlightSelection(rendered string, hlStyle lipgloss.Style, logFirstRow, logLastRow, logLeftCol, logRightCol int) string {
-	if !m.selection.Active || m.selection.IsEmpty() {
-		return rendered
-	}
-
-	startX, startY, endX, endY := m.selection.Bounds()
-
-	// Clamp selection to log pane bounds.
-	if startY < logFirstRow {
-		startY = logFirstRow
-		startX = logLeftCol
-	}
-	if endY > logLastRow {
-		endY = logLastRow
-		endX = logRightCol
-	}
-	if startY > endY {
-		return rendered
-	}
-
-	lines := strings.Split(rendered, "\n")
-	for i := range lines {
-		if i < startY || i > endY {
-			continue
-		}
-
-		lineWidth := ansi.StringWidth(lines[i])
-		if lineWidth == 0 {
-			continue
-		}
-
-		// First row: start at click position. Last row: end at release position.
-		// Middle rows: full width within log bounds.
-		var lx, rx int
-		if i == startY && i == endY {
-			// Single-line selection: exact click-to-release range.
-			lx = startX
-			rx = min(logRightCol, min(lineWidth, endX+1))
-		} else if i == startY {
-			// First row of multi-line: from click to right edge.
-			lx = startX
-			rx = min(lineWidth, logRightCol)
-		} else if i == endY {
-			// Last row of multi-line: from left edge to release.
-			lx = logLeftCol
-			rx = min(logRightCol, min(lineWidth, endX+1))
-		} else {
-			// Middle rows: full width.
-			lx = logLeftCol
-			rx = min(lineWidth, logRightCol)
-		}
-		if lx >= rx || lx >= lineWidth {
-			continue
-		}
-
-		before := ansi.Cut(lines[i], 0, lx)
-		selected := ansi.Cut(lines[i], lx, rx)
-		after := ansi.Cut(lines[i], rx, lineWidth)
-
-		plain := ansi.Strip(selected)
-		lines[i] = before + "\x1b[0m" + hlStyle.Render(plain) + after
-	}
-
-	return strings.Join(lines, "\n")
 }
 
 // renderScrollbar builds the scrollbar column with a pill-shaped thumb.

@@ -305,15 +305,11 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.sidebar, cmd = m.sidebar.Update(translated)
 					return m, cmd
 				}
-				// Wheel events go directly to viewport (no coordinate translation needed).
-				if _, isWheel := msg.(tea.MouseWheelMsg); isWheel {
-					var cmd tea.Cmd
-					m.output, cmd = m.output.Update(msg)
-					return m, cmd
-				}
-				// Click/motion/release: translate to output-local coordinates.
+				// Pass all mouse events with terminal-absolute coordinates.
+				// The output model stores them as-is for selection.
+				// Highlight is applied by the app on the full rendered view.
 				var cmd tea.Cmd
-				m.output, cmd = m.output.Update(m.translateMouseForOutput(msg))
+				m.output, cmd = m.output.Update(msg)
 				return m, cmd
 			}
 			var cmd tea.Cmd
@@ -652,6 +648,14 @@ func (m App) viewNormal() tea.View {
 		Height(m.height).
 		Render(content)
 
+	// --- Apply selection highlight on the full terminal view ---
+	// Selection coordinates are terminal-absolute — they map directly
+	// to rows/columns in the rendered content string.
+	sel := m.output.Selection()
+	if sel.Active && !sel.IsEmpty() {
+		content = applySelectionHighlight(content, sel, m.deps.Styles)
+	}
+
 	return tea.NewView(content)
 }
 
@@ -785,6 +789,62 @@ func (m App) translateMouseForOutput(msg tea.Msg) tea.Msg {
 		return msg
 	}
 	return msg
+}
+
+// applySelectionHighlight post-processes the full terminal view to highlight
+// the selected text range. Uses terminal-absolute coordinates from the
+// selection, confined to log content rows. The rendered view is the source
+// of truth for character positions.
+func applySelectionHighlight(content string, sel output.TextSelection, styles *theme.Styles) string {
+	hlStyle := lipgloss.NewStyle()
+	if styles != nil {
+		hlStyle = lipgloss.NewStyle().
+			Background(styles.Primary.GetForeground()).
+			Foreground(styles.BackgroundElem.GetForeground())
+	}
+
+	startX, startY, endX, endY := sel.Bounds()
+	lines := strings.Split(content, "\n")
+
+	for i := range lines {
+		if i < startY || i > endY {
+			continue
+		}
+
+		lineWidth := ansi.StringWidth(lines[i])
+		if lineWidth == 0 {
+			continue
+		}
+
+		// Determine highlight range for this row.
+		var lx, rx int
+		if i == startY && i == endY {
+			lx = startX
+			rx = min(lineWidth, endX+1)
+		} else if i == startY {
+			lx = startX
+			rx = lineWidth
+		} else if i == endY {
+			lx = 0
+			rx = min(lineWidth, endX+1)
+		} else {
+			lx = 0
+			rx = lineWidth
+		}
+
+		if lx >= rx || lx >= lineWidth {
+			continue
+		}
+
+		before := ansi.Cut(lines[i], 0, lx)
+		selected := ansi.Cut(lines[i], lx, rx)
+		after := ansi.Cut(lines[i], rx, lineWidth)
+
+		plain := ansi.Strip(selected)
+		lines[i] = before + "\x1b[0m" + hlStyle.Render(plain) + after
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 // injectBorderBadge replaces part of the top border row with a styled badge.
