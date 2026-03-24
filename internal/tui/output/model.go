@@ -533,7 +533,13 @@ func (m Model) View() string {
 
 	inner := lipgloss.JoinVertical(lipgloss.Left, headerBox, gap, logBox, gap, footerBox)
 	result := lipgloss.NewStyle().PaddingLeft(padX).PaddingRight(padX).Render(inner)
-	return m.highlightSelection(result, selectionStyle)
+
+	// Log content bounds in rendered-output coordinates for confining highlight.
+	logFirstRow := 3           // header(0) + gap(1) + topPad(2) → content starts at 3
+	logLastRow := logFirstRow + visibleH - 1
+	logLeftCol := padX         // left padding
+	logRightCol := padX + logW // content width (excludes scrollbar)
+	return m.highlightSelection(result, selectionStyle, logFirstRow, logLastRow, logLeftCol, logRightCol)
 }
 
 func (m Model) matchLineSet() map[int]bool {
@@ -586,16 +592,27 @@ func (m Model) extractSelectedText() string {
 }
 
 // highlightSelection post-processes the rendered output to apply the selection
-// style to the character range covered by the current selection. Uses ANSI-aware
-// Cut to split styled lines, matching the legacy implementation.
-func (m Model) highlightSelection(rendered string, hlStyle lipgloss.Style) string {
+// style, confined within the log pane bounds (logFirstRow..logLastRow,
+// logLeftCol..logRightCol). Uses ANSI-aware Cut to split styled lines.
+func (m Model) highlightSelection(rendered string, hlStyle lipgloss.Style, logFirstRow, logLastRow, logLeftCol, logRightCol int) string {
 	if !m.selection.Active || m.selection.IsEmpty() {
 		return rendered
 	}
 
-	// Selection coordinates are already in rendered-output space
-	// (set directly from mouse events, no offset translation).
 	startX, startY, endX, endY := m.selection.Bounds()
+
+	// Clamp selection to log pane bounds.
+	if startY < logFirstRow {
+		startY = logFirstRow
+		startX = logLeftCol
+	}
+	if endY > logLastRow {
+		endY = logLastRow
+		endX = logRightCol
+	}
+	if startY > endY {
+		return rendered
+	}
 
 	lines := strings.Split(rendered, "\n")
 	for i := range lines {
@@ -608,13 +625,13 @@ func (m Model) highlightSelection(rendered string, hlStyle lipgloss.Style) strin
 			continue
 		}
 
-		lx := 0
-		rx := lineWidth
+		lx := max(logLeftCol, 0)
+		rx := min(lineWidth, logRightCol)
 		if i == startY {
-			lx = startX
+			lx = max(startX, logLeftCol)
 		}
 		if i == endY {
-			rx = min(lineWidth, endX+1)
+			rx = min(logRightCol, min(lineWidth, endX+1))
 		}
 		if lx >= rx || lx >= lineWidth {
 			continue
