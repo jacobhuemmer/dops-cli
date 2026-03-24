@@ -3,6 +3,7 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"dops/internal/domain"
 )
@@ -12,7 +13,15 @@ func RunbookToInputSchema(rb domain.Runbook, resolved map[string]string) json.Ra
 	properties := make(map[string]any)
 	var required []string
 
+	var sensitiveNames []string
+
 	for _, p := range rb.Parameters {
+		// Exclude sensitive params from the schema entirely.
+		if p.Secret {
+			sensitiveNames = append(sensitiveNames, p.Name)
+			continue
+		}
+
 		prop := map[string]any{}
 
 		switch p.Type {
@@ -93,10 +102,23 @@ func RunbookToInputSchema(rb domain.Runbook, resolved map[string]string) json.Ra
 }
 
 // RunbookToDescription generates a tool description for a runbook.
+// Includes a warning if the runbook has sensitive inputs loaded from config.
 func RunbookToDescription(rb domain.Runbook) string {
 	desc := rb.Description
 	if rb.RiskLevel != "" {
 		desc += fmt.Sprintf(" [risk: %s]", rb.RiskLevel)
 	}
+
+	var sensitiveNames []string
+	for _, p := range rb.Parameters {
+		if p.Secret {
+			sensitiveNames = append(sensitiveNames, p.Name)
+		}
+	}
+	if len(sensitiveNames) > 0 {
+		desc += fmt.Sprintf(" ⚠ Sensitive inputs (%s) are loaded from local config. Use 'dops config set' to configure.",
+			strings.Join(sensitiveNames, ", "))
+	}
+
 	return desc
 }
