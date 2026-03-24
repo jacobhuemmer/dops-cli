@@ -216,11 +216,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseReleaseMsg:
-		if m.selection.Active && !m.selection.IsEmpty() {
-			text := m.selection.ExtractText(m.visibleLineTexts())
-			if text != "" {
-				// Keep selection active for visual highlight.
-				return m, tea.SetClipboard(text)
+		if m.selection.Active {
+			// Update focus to final release position.
+			logTop := 3
+			logCol := 3
+			m.selection.FocusX = max(0, msg.X-logCol)
+			m.selection.FocusY = max(0, msg.Y-logTop)
+
+			if !m.selection.IsEmpty() {
+				text := m.selection.ExtractText(m.visibleLineTexts())
+				if text != "" {
+					return m, tea.SetClipboard(text)
+				}
 			}
 		}
 		return m, nil

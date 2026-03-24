@@ -47,7 +47,7 @@ func (s *TextSelection) ExtractText(visibleLines []string) string {
 	}
 
 	if startY == endY {
-		// Single-line selection.
+		// Single-line selection — include the character under the cursor.
 		line := visibleLines[startY]
 		runes := []rune(line)
 		lx := max(0, startX)
