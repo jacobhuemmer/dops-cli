@@ -18,6 +18,7 @@ import (
 	"dops/internal/theme"
 	"dops/internal/tui/confirm"
 	"dops/internal/tui/footer"
+	"dops/internal/tui/help"
 	"dops/internal/tui/metadata"
 	"dops/internal/tui/output"
 	"dops/internal/tui/palette"
@@ -36,6 +37,7 @@ const (
 	stateWizard
 	statePalette
 	stateConfirm
+	stateHelp
 )
 
 type focusTarget int
@@ -185,7 +187,16 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cancelExec()
 				}
 				return m, nil
+			case "?":
+				m.state = stateHelp
+				return m, nil
 			}
+		}
+		if m.state == stateHelp {
+			if msg.String() == "?" || msg.String() == "escape" || msg.Code == tea.KeyEscape {
+				m.state = stateNormal
+			}
+			return m, nil
 		}
 
 	case sidebar.RunbookSelectedMsg:
@@ -495,7 +506,9 @@ func (m App) View() tea.View {
 
 	var v tea.View
 
-	if m.state == stateConfirm && m.conf != nil {
+	if m.state == stateHelp {
+		v = m.viewHelpOverlay()
+	} else if m.state == stateConfirm && m.conf != nil {
 		v = m.viewConfirmOverlay()
 	} else if m.state == stateWizard && m.wizard != nil {
 		v = m.viewWizardOverlay()
@@ -604,6 +617,24 @@ func (m App) viewNormal() tea.View {
 		Width(m.width).
 		Height(m.height).
 		Render(content)
+
+	return tea.NewView(content)
+}
+
+func (m App) viewHelpOverlay() tea.View {
+	var helpFocus help.FocusTarget
+	if m.focus == focusOutput {
+		helpFocus = help.FocusOutput
+	}
+	helpView := help.Render(helpFocus, m.width/2, m.deps.Styles)
+
+	content := lipgloss.Place(m.width, m.height,
+		lipgloss.Center, lipgloss.Center,
+		helpView,
+	)
+
+	footerView := footer.Render(footer.StateHelp, m.width, m.deps.Styles)
+	content = lipgloss.JoinVertical(lipgloss.Left, content, footerView)
 
 	return tea.NewView(content)
 }
@@ -898,6 +929,8 @@ func appFooterState(s viewState) footer.State {
 		return footer.StatePalette
 	case stateConfirm:
 		return footer.StateConfirm
+	case stateHelp:
+		return footer.StateHelp
 	default:
 		return footer.StateNormal
 	}

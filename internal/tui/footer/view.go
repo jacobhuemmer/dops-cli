@@ -14,6 +14,7 @@ const (
 	StateRunning
 	StatePalette
 	StateConfirm
+	StateHelp
 )
 
 type binding struct {
@@ -55,6 +56,11 @@ func Render(state State, width int, styles *theme.Styles) string {
 		bindings = []binding{
 			{"enter", "confirm"},
 			{"esc", "cancel"},
+		}
+	case StateHelp:
+		bindings = []binding{
+			{"?", "close"},
+			{"esc", "close"},
 		}
 	}
 
