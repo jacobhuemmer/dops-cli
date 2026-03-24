@@ -446,7 +446,7 @@ func (m Model) View() string {
 	var b strings.Builder
 
 	// --- Header ---
-	cmd := BuildCommand(m.runbook, m.collectParams())
+	cmd := BuildCommand(m.runbook, m.collectParams(), m.resolved)
 	b.WriteString(m.renderHeader(cmd))
 	b.WriteString("\n")
 
@@ -657,16 +657,32 @@ func MissingParams(params []domain.Parameter, resolved map[string]string) []doma
 }
 
 // BuildCommand formats the dops run command for display.
-func BuildCommand(rb domain.Runbook, params map[string]string) string {
+// Only includes --param flags for values NOT in the config (overrides only).
+func BuildCommand(rb domain.Runbook, params map[string]string, configParams ...map[string]string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "dops run %s", rb.ID)
+
+	// If config params provided, only show params that differ or aren't in config.
+	var saved map[string]string
+	if len(configParams) > 0 {
+		saved = configParams[0]
+	}
+
 	for _, p := range rb.Parameters {
-		if v, ok := params[p.Name]; ok {
-			if p.Secret {
-				fmt.Fprintf(&b, " --param %s=****", p.Name)
-			} else {
-				fmt.Fprintf(&b, " --param %s=%s", p.Name, v)
+		v, ok := params[p.Name]
+		if !ok {
+			continue
+		}
+		// Skip if the value is from config (unchanged).
+		if saved != nil {
+			if sv, inConfig := saved[p.Name]; inConfig && sv == v {
+				continue
 			}
+		}
+		if p.Secret {
+			fmt.Fprintf(&b, " --param %s=****", p.Name)
+		} else {
+			fmt.Fprintf(&b, " --param %s=%s", p.Name, v)
 		}
 	}
 	return b.String()
