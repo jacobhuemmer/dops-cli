@@ -45,10 +45,11 @@ const (
 
 // Layout constants shared between rendering and mouse translation.
 const (
-	layoutMarginLeft = 3
-	layoutMarginTop  = 3
-	layoutBorderSize = 1 // one side of a rounded border
-	layoutPadLeft    = 1 // sidebar content left padding
+	layoutMarginLeft   = 3
+	layoutMarginTop    = 3
+	layoutMarginBottom = 4
+	layoutBorderSize   = 1 // one side of a rounded border
+	layoutPadLeft      = 1 // sidebar content left padding
 )
 
 var tuiANSIPattern = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
@@ -463,7 +464,7 @@ func (m App) viewNormal() tea.View {
 	sw        := sidebarWidth(innerW)
 	rightW    := clamp(innerW - sw - borderSize - gap, 1)
 	contentW  := clamp(rightW - borderSize, 1) // content width inside bordered panels
-	panelRows := clamp(m.height - layoutMarginTop - footerH, 1)
+	panelRows := clamp(m.height - layoutMarginTop - footerH - layoutMarginBottom, 1)
 
 	// --- Theme colors ---
 	var borderColor, activeBorderColor color.Color
