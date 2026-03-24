@@ -381,8 +381,14 @@ func (m *Model) saveCurrentField() {
 	default:
 		keyPath = fmt.Sprintf("vars.global.%s", p.Name)
 	}
-	config.Set(m.cfg, keyPath, val)
-	m.store.Save(m.cfg)
+
+	if err := config.Set(m.cfg, keyPath, val); err != nil {
+		m.err = fmt.Sprintf("save failed: %v", err)
+		return
+	}
+	if err := m.store.Save(m.cfg); err != nil {
+		m.err = fmt.Sprintf("save failed: %v", err)
+	}
 }
 
 func (m Model) advance() (Model, tea.Cmd) {
