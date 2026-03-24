@@ -302,10 +302,7 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if isMouseClick(msg) {
 			if _, cmd := m.handleMetadataClick(msg); cmd != nil {
 				m.copiedFlash = true
-				m.output.SetCopyFlash(true)
-				return m, tea.Batch(cmd, tea.Tick(1500*time.Millisecond, func(time.Time) tea.Msg {
-					return output.CopyFlashExpiredMsg{}
-				}))
+				return m, cmd
 			}
 			if cmd := m.handleOutputClick(msg); cmd != nil {
 				return m, cmd
@@ -617,6 +614,10 @@ func (m App) viewNormal() tea.View {
 		BorderForeground(borderColor).
 		Width(contentW).
 		Render(metaContent)
+
+	if m.copiedFlash {
+		metaView = injectBorderBadge(metaView, "Copied to Clipboard!", m.deps.Styles)
+	}
 
 	metaRenderedH := lipgloss.Height(metaView)
 
