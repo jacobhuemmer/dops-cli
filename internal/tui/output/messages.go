@@ -9,3 +9,6 @@ type ExecutionDoneMsg struct {
 	LogPath string
 	Err     error
 }
+
+type CopiedHeaderFlashMsg struct{}
+type CopiedFooterFlashMsg struct{}

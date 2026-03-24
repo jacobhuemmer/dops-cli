@@ -7,53 +7,183 @@ import (
 
 	"dops/internal/theme"
 
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
+// horizontalScrollStep is how many columns h/l scroll per press.
+const horizontalScrollStep = 8
+
 type Model struct {
-	command     string
-	lines       []OutputLineMsg
-	logPath     string
-	width       int
-	height      int
-	offset      int
-	searching   bool
-	navigating  bool
-	searchQuery string
-	matchLines  []int // line indices that contain matches
-	matchCount  int
-	matchIndex  int
-	styles      *theme.Styles
+	command      string
+	lines        []OutputLineMsg
+	logPath      string
+	width        int // total outer width (including section borders)
+	height       int // total outer height (including section borders)
+	vp           viewport.Model
+	xOffset      int
+	maxLineWidth int
+	atBottom     bool
+	searching    bool
+	navigating   bool
+	searchQuery  string
+	matchLines   []int
+	matchCount   int
+	matchIndex   int
+	copiedHeader bool
+	copiedFooter bool
+	commandLineH int // wrapped command line height in rows
+	focused      bool
+	styles       *theme.Styles
 }
 
 func New(width, height int, styles *theme.Styles) Model {
-	return Model{width: width, height: height, styles: styles}
+	m := Model{
+		width:        width,
+		height:       height,
+		styles:       styles,
+		atBottom:     true,
+		commandLineH: 1,
+	}
+	m.vp = viewport.New()
+	m.resizeViewport()
+	return m
 }
 
 func (m *Model) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	m.updateCommandLineH()
+	m.resizeViewport()
+}
+
+func (m *Model) SetFocused(v bool) {
+	m.focused = v
 }
 
 func (m *Model) Clear() {
 	m.command = ""
 	m.lines = nil
 	m.logPath = ""
+	m.copiedHeader = false
+	m.copiedFooter = false
+	m.xOffset = 0
+	m.maxLineWidth = 0
+	m.atBottom = true
+	m.commandLineH = 1
+	m.vp.SetContent("")
 	m.clearSearch()
 }
 
 func (m *Model) SetCommand(cmd string) {
 	m.command = cmd
+	m.updateCommandLineH()
 }
+
+func (m Model) Command() string       { return m.command }
+func (m Model) LogPath() string        { return m.logPath }
+func (m *Model) SetCopiedHeader(v bool) { m.copiedHeader = v }
+func (m *Model) SetCopiedFooter(v bool) { m.copiedFooter = v }
+
+func (m Model) HasSession() bool { return m.command != "" }
+
+// HandleClick checks if a click hits the header or footer text.
+func (m Model) HandleClick(x, y, width, height int) (copyText string, region string) {
+	m.width = width
+	m.height = height
+	rendered := m.View()
+	if ct, r := hitTestRenderedText(rendered, x, y, "$ "+m.command, m.command, "header"); r != "" {
+		return ct, r
+	}
+	if m.logPath != "" && !m.searching && !m.navigating {
+		return hitTestRenderedText(rendered, x, y, "Saved to "+m.logPath, m.logPath, "footer")
+	}
+	return "", ""
+}
+
+func hitTestRenderedText(rendered string, x, y int, target, copyText, region string) (string, string) {
+	if target == "" {
+		return "", ""
+	}
+	lines := strings.Split(rendered, "\n")
+	if y < 0 || y >= len(lines) {
+		return "", ""
+	}
+	line := ansi.Strip(lines[y])
+	idx := strings.Index(line, target)
+	if idx == -1 {
+		return "", ""
+	}
+	start := lipgloss.Width(line[:idx])
+	end := start + lipgloss.Width(target)
+	if x < start || x >= end {
+		return "", ""
+	}
+	return copyText, region
+}
+
+// ---------------------------------------------------------------------------
+// Height / width calculations (matching legacy chromeHeight/contentHeight)
+// ---------------------------------------------------------------------------
+
+// chromeHeight returns the total rows consumed by borders, header content,
+// and footer content — everything except scrollable log lines.
+func (m Model) chromeHeight() int {
+	// header: 1 top border + commandLineH content (no bottom border)
+	// log:    1 top border + 1 bottom border
+	// footer: 1 content row + 1 bottom border (no top border)
+	return m.commandLineH + 5
+}
+
+// contentHeight returns rows available for the log section interior
+// (between its top and bottom borders).
+func (m Model) contentHeight() int {
+	return max(1, m.height-m.chromeHeight())
+}
+
+// bodyHeight returns the number of visible log lines (content minus padding).
+func (m Model) bodyHeight() int {
+	return max(1, m.contentHeight()-2) // minus top/bottom padding rows
+}
+
+// textWidth returns usable character width for log lines.
+func (m Model) textWidth() int {
+	// 2 border sides + 2 indent + 1 scrollbar
+	return max(1, m.width-5)
+}
+
+func (m *Model) updateCommandLineH() {
+	if m.width <= 2 || m.command == "" {
+		m.commandLineH = 1
+		return
+	}
+	innerW := m.width - 2 // minus border left+right
+	wrapped := ansi.Wrap("$ "+m.command, innerW, " ")
+	m.commandLineH = strings.Count(wrapped, "\n") + 1
+}
+
+func (m *Model) resizeViewport() {
+	m.vp.SetWidth(max(1, m.textWidth()))
+	m.vp.SetHeight(max(1, m.bodyHeight()))
+}
+
+// ---------------------------------------------------------------------------
+// Update
+// ---------------------------------------------------------------------------
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case OutputLineMsg:
+		msg.Text = strings.ReplaceAll(msg.Text, "\r", "")
 		m.lines = append(m.lines, msg)
-		// Auto-scroll to bottom when new output arrives and not searching
-		if !m.searching && !m.navigating {
-			m.scrollToBottom()
+		if lw := ansi.StringWidth(msg.Text); lw > m.maxLineWidth {
+			m.maxLineWidth = lw
+		}
+		m.syncViewportContent()
+		if m.atBottom {
+			m.vp.GotoBottom()
 		}
 		return m, nil
 
@@ -68,26 +198,41 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		if m.searching {
 			return m.updateSearching(msg), nil
 		}
-		return m.updateNormal(msg), nil
+		return m.updateNormal(msg)
 	}
 
-	return m, nil
+	return m.forwardToViewport(msg)
 }
 
-func (m Model) updateNormal(msg tea.KeyPressMsg) Model {
+func (m Model) updateNormal(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case msg.Text == "/" || msg.String() == "/":
 		m.searching = true
 		m.searchQuery = ""
-	case msg.Code == tea.KeyUp:
-		if m.offset > 0 {
-			m.offset--
-		}
-	case msg.Code == tea.KeyDown:
-		m.offset++
-		m.clampOffset()
+		return m, nil
+	case msg.Text == "h" || msg.Code == tea.KeyLeft:
+		m.xOffset = max(0, m.xOffset-horizontalScrollStep)
+		return m, nil
+	case msg.Text == "l" || msg.Code == tea.KeyRight:
+		tw := m.textWidth()
+		maxScroll := max(0, m.maxLineWidth-tw)
+		m.xOffset = min(m.xOffset+horizontalScrollStep, maxScroll)
+		return m, nil
 	}
-	return m
+	return m.forwardToViewport(msg)
+}
+
+func (m Model) forwardToViewport(msg tea.Msg) (Model, tea.Cmd) {
+	prevOffset := m.vp.YOffset()
+	var cmd tea.Cmd
+	m.vp, cmd = m.vp.Update(msg)
+	newOffset := m.vp.YOffset()
+	if newOffset < prevOffset {
+		m.atBottom = false
+	} else if newOffset > prevOffset {
+		m.atBottom = m.vp.AtBottom()
+	}
+	return m, cmd
 }
 
 func (m Model) updateSearching(msg tea.KeyPressMsg) Model {
@@ -137,11 +282,9 @@ func (m *Model) applySearch() {
 	m.matchLines = nil
 	m.matchCount = 0
 	m.matchIndex = 0
-
 	if m.searchQuery == "" {
 		return
 	}
-
 	q := strings.ToLower(m.searchQuery)
 	for i, line := range m.lines {
 		if strings.Contains(strings.ToLower(line.Text), q) {
@@ -164,50 +307,24 @@ func (m *Model) scrollToMatch() {
 	if m.matchIndex < 0 || m.matchIndex >= len(m.matchLines) {
 		return
 	}
-	lineIdx := m.matchLines[m.matchIndex]
-	bodyHeight := m.bodyHeight()
-	if bodyHeight <= 0 {
-		return
-	}
-	if lineIdx < m.offset {
-		m.offset = lineIdx
-	}
-	if lineIdx >= m.offset+bodyHeight {
-		m.offset = lineIdx - bodyHeight + 1
-	}
+	m.vp.SetYOffset(m.matchLines[m.matchIndex])
+	m.atBottom = false
 }
 
-func (m *Model) scrollToBottom() {
-	bodyH := m.bodyHeight()
-	if bodyH <= 0 {
-		return
+func (m *Model) syncViewportContent() {
+	var sb strings.Builder
+	for i := range m.lines {
+		if i > 0 {
+			sb.WriteByte('\n')
+		}
+		sb.WriteByte(' ')
 	}
-	if len(m.lines) > bodyH {
-		m.offset = len(m.lines) - bodyH
-	}
+	m.vp.SetContent(sb.String())
 }
 
-func (m *Model) clampOffset() {
-	bodyH := m.bodyHeight()
-	if bodyH <= 0 {
-		return
-	}
-	maxOffset := len(m.lines) - bodyH
-	if maxOffset < 0 {
-		maxOffset = 0
-	}
-	if m.offset > maxOffset {
-		m.offset = maxOffset
-	}
-}
-
-func (m Model) bodyHeight() int {
-	h := m.height - 2 // header + footer reserve
-	if h < 1 {
-		h = 1
-	}
-	return h
-}
+// ---------------------------------------------------------------------------
+// View — three stacked bordered sections
+// ---------------------------------------------------------------------------
 
 func (m Model) ViewWithSize(width, height int) string {
 	m.width = width
@@ -216,107 +333,169 @@ func (m Model) ViewWithSize(width, height int) string {
 }
 
 func (m Model) View() string {
-	innerW := m.width - 4 // border + padding
-	if innerW < 10 {
-		innerW = 10
-	}
-
-	headerStyle := lipgloss.NewStyle().Width(innerW).Padding(0, 1)
-	footerLogStyle := lipgloss.NewStyle().Width(innerW).Padding(0, 1)
-	stderrStyle := lipgloss.NewStyle()
-	placeholderStyle := lipgloss.NewStyle()
-	var borderColor color.Color = lipgloss.NoColor{}
+	// --- Resolve colors ---
+	var textFg, mutedFg, stderrFg, successFg, primaryFg color.Color
+	var bgColor, bgElemColor, borderActiveFg color.Color
+	textFg = lipgloss.NoColor{}
+	mutedFg = lipgloss.NoColor{}
+	stderrFg = lipgloss.NoColor{}
+	successFg = lipgloss.NoColor{}
+	primaryFg = lipgloss.NoColor{}
+	bgColor = lipgloss.NoColor{}
+	bgElemColor = lipgloss.NoColor{}
+	borderActiveFg = lipgloss.NoColor{}
 
 	if m.styles != nil {
-		bgElem := m.styles.BackgroundElem.GetForeground()
-		headerStyle = headerStyle.
-			Background(bgElem).
-			Foreground(m.styles.Text.GetForeground())
-		footerLogStyle = footerLogStyle.
-			Background(bgElem).
-			Foreground(m.styles.TextMuted.GetForeground())
-		stderrStyle = m.styles.Error
-		placeholderStyle = m.styles.TextMuted
-		borderColor = m.styles.Border.GetForeground()
+		textFg = m.styles.Text.GetForeground()
+		mutedFg = m.styles.TextMuted.GetForeground()
+		stderrFg = m.styles.Error.GetForeground()
+		successFg = m.styles.Success.GetForeground()
+		primaryFg = m.styles.Primary.GetForeground()
+		bgColor = m.styles.Background.GetForeground()
+		bgElemColor = m.styles.BackgroundElem.GetForeground()
+		borderActiveFg = m.styles.BorderActive.GetForeground()
 	}
 
-	var b strings.Builder
-
-	// Header
-	if m.command != "" {
-		b.WriteString(headerStyle.Render("$ "+m.command) + "\n")
+	if !m.HasSession() {
+		return ""
 	}
 
-	// Body
-	if len(m.lines) == 0 && m.command == "" {
-		// Center placeholder vertically and horizontally
-		padTop := m.height / 3
-		for i := 0; i < padTop; i++ {
-			b.WriteString("\n")
-		}
-		placeholder := placeholderStyle.Render("Press enter to run a runbook")
-		centered := lipgloss.PlaceHorizontal(innerW, lipgloss.Center, placeholder)
-		b.WriteString(centered + "\n")
-	} else if len(m.lines) == 0 {
-		padTop := m.height / 3
-		for i := 0; i < padTop; i++ {
-			b.WriteString("\n")
-		}
-		running := placeholderStyle.Render("Running...")
-		centered := lipgloss.PlaceHorizontal(innerW, lipgloss.Center, running)
-		b.WriteString(centered + "\n")
+	// --- Section border: invisible by default, active when focused ---
+	borderFg := bgColor
+	if m.focused {
+		borderFg = borderActiveFg
+	}
+	sectionBorder := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderFg).
+		BorderBackground(bgColor).
+		Background(bgColor)
+
+	innerW := max(1, m.width-2) // content width inside border columns
+	tw := m.textWidth()
+
+	// === Section 1 — Header ===
+	var headerContent string
+	if m.copiedHeader {
+		headerContent = lipgloss.NewStyle().Foreground(successFg).Background(bgColor).Render("Copied to Clipboard")
 	} else {
-		bodyH := m.bodyHeight()
-		start := m.offset
-		if start > len(m.lines) {
-			start = len(m.lines)
-		}
-		end := start + bodyH
-		if end > len(m.lines) {
-			end = len(m.lines)
-		}
+		dollar := lipgloss.NewStyle().Foreground(successFg).Background(bgColor).Render("$")
+		cmd := lipgloss.NewStyle().Foreground(textFg).Background(bgColor).Render(" " + m.command)
+		headerContent = ansi.Wrap(dollar+cmd, innerW, " ")
+	}
+	chromeStyle := lipgloss.NewStyle().Background(bgColor).Foreground(textFg).Width(innerW)
+	headerBox := sectionBorder.BorderBottom(false).Width(m.width).Render(
+		chromeStyle.Render(headerContent),
+	)
 
-		matchSet := m.matchLineSet()
-		needsScrollbar := len(m.lines) > bodyH
+	// === Section 3 — Footer (rendered early to measure) ===
+	var footerContent string
+	if m.copiedFooter {
+		footerContent = lipgloss.NewStyle().Foreground(successFg).Background(bgColor).Render("Copied to Clipboard")
+	} else if m.logPath != "" && !m.searching && !m.navigating {
+		footerContent = lipgloss.NewStyle().Foreground(mutedFg).Background(bgColor).Render("Saved to " + m.logPath)
+	}
+	footerBox := sectionBorder.BorderTop(false).Width(m.width).Render(
+		chromeStyle.Render(footerContent),
+	)
 
-		for i := start; i < end; i++ {
-			line := m.lines[i]
-			prefix := "  "
-			if matchSet[i] {
+	// === Section 2 — Log pane ===
+	logContentStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(textFg)
+	logStderrStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(stderrFg)
+	logSuccessStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(successFg)
+	thumbStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(primaryFg)
+
+	searchBarH := 0
+	if m.searching || m.navigating {
+		searchBarH = 2
+	}
+	visibleH := max(1, m.contentHeight()-2-searchBarH) // content minus padding minus search
+	logW := max(1, innerW-1)                           // leave 1 col for scrollbar
+
+	// Styled blank line (bgElemColor fills full width).
+	blankLine := logContentStyle.Render(strings.Repeat(" ", logW))
+
+	// Scroll position from the viewport.
+	yOffset := m.vp.YOffset()
+	if searchBarH > 0 && len(m.lines) > visibleH {
+		maxOff := len(m.lines) - visibleH
+		if yOffset > maxOff {
+			yOffset = maxOff
+		}
+		if m.atBottom {
+			yOffset = maxOff
+		}
+	}
+
+	matchSet := m.matchLineSet()
+	needsScrollbar := len(m.lines) > visibleH
+
+	// Build log lines: top padding + visible lines + bottom padding.
+	logTotalH := visibleH + 2 + searchBarH // padding(2) + search
+	logLines := make([]string, 0, logTotalH)
+	logLines = append(logLines, blankLine) // top padding
+
+	for i := range visibleH {
+		idx := yOffset + i
+		if idx < len(m.lines) {
+			line := m.lines[idx]
+			prefix := ""
+			if matchSet[idx] {
 				prefix = "» "
 			}
-			lineText := prefix + line.Text
-			if line.IsStderr {
-				lineText = stderrStyle.Render(lineText)
-			}
+			lineW := tw
 			if needsScrollbar {
-				lineText += " " + scrollbarChar(i-start, len(m.lines), bodyH)
+				lineW--
 			}
-			b.WriteString(lineText + "\n")
+			lineW = max(1, lineW)
+
+			raw := prefix + line.Text
+			rawWidth := ansi.StringWidth(raw)
+			var visible string
+			if m.xOffset > 0 || rawWidth > lineW {
+				endCol := min(m.xOffset+lineW, rawWidth)
+				if m.xOffset >= rawWidth {
+					visible = ""
+				} else {
+					visible = ansi.Cut(raw, m.xOffset, endCol)
+				}
+			} else {
+				visible = ansi.Truncate(raw, lineW, "")
+			}
+
+			var styled string
+			if line.IsStderr {
+				styled = "  " + logStderrStyle.Render(visible)
+			} else {
+				styled = "  " + logContentStyle.Render(visible)
+			}
+			// Pad to full width so bgElemColor fills the row.
+			if visW := ansi.StringWidth(styled); visW < logW {
+				styled += logContentStyle.Render(strings.Repeat(" ", logW-visW))
+			}
+			logLines = append(logLines, styled)
+		} else {
+			logLines = append(logLines, blankLine)
 		}
 	}
 
-	// Footer — log path or search status
-	if m.logPath != "" && !m.searching && !m.navigating {
-		b.WriteString(footerLogStyle.Render("Saved to "+m.logPath) + "\n")
-	}
+	logLines = append(logLines, blankLine) // bottom padding
 
 	if m.searching {
-		b.WriteString(fmt.Sprintf("  /%s", m.searchQuery))
+		logLines = append(logLines, logContentStyle.Width(logW).Render("  "+fmt.Sprintf("/%s", m.searchQuery)))
+		logLines = append(logLines, blankLine)
 	}
-
 	if m.navigating && m.matchCount > 0 {
-		b.WriteString(fmt.Sprintf("  [%d/%d]", m.matchIndex+1, m.matchCount))
+		logLines = append(logLines, logSuccessStyle.Width(logW).Render("  "+fmt.Sprintf("[%d/%d]", m.matchIndex+1, m.matchCount)))
+		logLines = append(logLines, blankLine)
 	}
 
-	// Wrap in rounded border — height fills allocated space
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Width(m.width - 2). // -2 for left+right border chars
-		Height(m.height)
+	contentStr := strings.Join(logLines, "\n")
+	scrollbar := m.renderScrollbar(logTotalH, yOffset, visibleH, logContentStyle, thumbStyle)
+	logInner := lipgloss.JoinHorizontal(lipgloss.Top, contentStr, scrollbar)
+	logBox := sectionBorder.Width(m.width).Render(logInner)
 
-	return borderStyle.Render(b.String())
+	return lipgloss.JoinVertical(lipgloss.Left, headerBox, logBox, footerBox)
 }
 
 func (m Model) matchLineSet() map[int]bool {
@@ -327,26 +506,59 @@ func (m Model) matchLineSet() map[int]bool {
 	return set
 }
 
-func scrollbarChar(lineIdx, total, visible int) string {
-	if total <= visible {
+// renderScrollbar builds the scrollbar column with a pill-shaped thumb.
+func (m Model) renderScrollbar(contentH, yOffset, visibleH int, trackStyle, thumbStyle lipgloss.Style) string {
+	total := len(m.lines)
+	if total <= visibleH {
+		lines := make([]string, contentH)
+		for i := range lines {
+			lines[i] = trackStyle.Render(" ")
+		}
+		return strings.Join(lines, "\n")
+	}
+
+	thumbHeight := max(1, (contentH*contentH)/total)
+	maxOffset := total - visibleH
+	var thumbPos int
+	if yOffset >= maxOffset {
+		thumbPos = contentH - thumbHeight
+	} else {
+		thumbPos = (yOffset * contentH) / total
+	}
+	thumbPos = max(0, min(thumbPos, contentH-thumbHeight))
+
+	var sb strings.Builder
+	for i := range contentH {
+		if i >= thumbPos && i < thumbPos+thumbHeight {
+			sb.WriteString(thumbStyle.Render("▐"))
+		} else {
+			sb.WriteString(trackStyle.Render(" "))
+		}
+		if i < contentH-1 {
+			sb.WriteString("\n")
+		}
+	}
+	return sb.String()
+}
+
+// scrollbarCharAt returns the scrollbar character for a given row (used by tests).
+func (m Model) scrollbarCharAt(visibleRow int) string {
+	total := len(m.lines)
+	bh := m.bodyHeight()
+	if total <= bh {
 		return " "
 	}
-	thumbSize := visible * visible / total
-	if thumbSize < 1 {
-		thumbSize = 1
+	thumbHeight := max(1, (bh*bh)/total)
+	maxOffset := total - bh
+	yOffset := m.vp.YOffset()
+	var thumbPos int
+	if yOffset >= maxOffset {
+		thumbPos = bh - thumbHeight
+	} else {
+		thumbPos = (yOffset * bh) / total
 	}
-	thumbStart := lineIdx * total / visible
-	_ = thumbStart
-	// Simple proportional thumb
-	pos := lineIdx * total / visible
-	thumbPos := (total - visible) * lineIdx / visible
-	_ = pos
-	_ = thumbPos
-	// Simplified: just show block for thumb region
-	ratio := float64(lineIdx) / float64(visible)
-	scrollRatio := float64(total-visible) / float64(total)
-	_ = scrollRatio
-	if ratio < float64(thumbSize)/float64(visible) {
+	thumbPos = max(0, min(thumbPos, bh-thumbHeight))
+	if visibleRow >= thumbPos && visibleRow < thumbPos+thumbHeight {
 		return "█"
 	}
 	return "░"

@@ -43,7 +43,7 @@ func TestFileConfigStore_RoundTrip(t *testing.T) {
 	store := NewFileStore(ffs, "/fake/.dops/config.json")
 
 	original := &domain.Config{
-		Theme:    "tokyonight",
+		Theme:    "tokyomidnight",
 		Defaults: domain.Defaults{MaxRiskLevel: domain.RiskMedium},
 		Vars: domain.Vars{
 			Global: map[string]any{"region": "us-east-1"},
@@ -89,8 +89,8 @@ func TestFileConfigStore_EnsureDefaults(t *testing.T) {
 		t.Fatalf("EnsureDefaults: %v", err)
 	}
 
-	if cfg.Theme != "tokyonight" {
-		t.Errorf("default theme = %q, want tokyonight", cfg.Theme)
+	if cfg.Theme != "tokyomidnight" {
+		t.Errorf("default theme = %q, want tokyomidnight", cfg.Theme)
 	}
 
 	data, ok := ffs.files["/fake/.dops/config.json"]
@@ -102,8 +102,8 @@ func TestFileConfigStore_EnsureDefaults(t *testing.T) {
 	if err := json.Unmarshal(data, &ondisk); err != nil {
 		t.Fatalf("unmarshal written config: %v", err)
 	}
-	if ondisk.Theme != "tokyonight" {
-		t.Errorf("on-disk theme = %q, want tokyonight", ondisk.Theme)
+	if ondisk.Theme != "tokyomidnight" {
+		t.Errorf("on-disk theme = %q, want tokyomidnight", ondisk.Theme)
 	}
 }
 

@@ -201,6 +201,7 @@ func TestOutputSearch_EmptyBuffer(t *testing.T) {
 
 func TestOutputSearch_ScrollbarWhenContentExceedsHeight(t *testing.T) {
 	m := New(60, 5, outputTestStyles())
+	m.SetCommand("test")
 	for i := 0; i < 20; i++ {
 		m, _ = m.Update(OutputLineMsg{Text: "line", IsStderr: false})
 	}

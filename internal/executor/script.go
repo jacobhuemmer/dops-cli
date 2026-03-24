@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -26,19 +27,12 @@ func (r *ScriptRunner) Run(ctx context.Context, scriptPath string, env map[strin
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", strings.ToUpper(k), v))
 	}
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		close(lines)
-		errs <- fmt.Errorf("stdout pipe: %w", err)
-		return lines, errs
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		close(lines)
-		errs <- fmt.Errorf("stderr pipe: %w", err)
-		return lines, errs
-	}
+	// Use io.Pipe instead of cmd.StdoutPipe/StderrPipe for immediate
+	// line delivery without OS pipe buffering.
+	stdoutR, stdoutW := io.Pipe()
+	stderrR, stderrW := io.Pipe()
+	cmd.Stdout = stdoutW
+	cmd.Stderr = stderrW
 
 	if err := cmd.Start(); err != nil {
 		close(lines)
@@ -51,7 +45,7 @@ func (r *ScriptRunner) Run(ctx context.Context, scriptPath string, env map[strin
 
 	go func() {
 		defer wg.Done()
-		scanner := bufio.NewScanner(stdout)
+		scanner := bufio.NewScanner(stdoutR)
 		for scanner.Scan() {
 			lines <- OutputLine{Text: scanner.Text(), IsStderr: false}
 		}
@@ -59,16 +53,20 @@ func (r *ScriptRunner) Run(ctx context.Context, scriptPath string, env map[strin
 
 	go func() {
 		defer wg.Done()
-		scanner := bufio.NewScanner(stderr)
+		scanner := bufio.NewScanner(stderrR)
 		for scanner.Scan() {
 			lines <- OutputLine{Text: scanner.Text(), IsStderr: true}
 		}
 	}()
 
 	go func() {
+		err := cmd.Wait()
+		// Close pipe writers so scanners finish.
+		stdoutW.Close()
+		stderrW.Close()
 		wg.Wait()
 		close(lines)
-		errs <- cmd.Wait()
+		errs <- err
 	}()
 
 	return lines, errs

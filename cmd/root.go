@@ -75,17 +75,20 @@ func launchTUI(dopsDir string) error {
 	logWriter := adapters.NewLogWriter("/tmp")
 
 	altScreen := os.Getenv("DOPS_NO_ALT_SCREEN") == ""
+	progRef := &tui.ProgramRef{}
 
 	app := tui.NewAppWithDeps(tui.AppDeps{
-		Styles:    styles,
-		Store:     store,
-		Runner:    runner,
-		LogWriter: logWriter,
-		Config:    cfg,
-		Catalogs:  catalogs,
-		AltScreen: altScreen,
+		Styles:     styles,
+		Store:      store,
+		Runner:     runner,
+		LogWriter:  logWriter,
+		Config:     cfg,
+		Catalogs:   catalogs,
+		AltScreen:  altScreen,
+		ProgramRef: progRef,
 	})
 	p := tea.NewProgram(app)
+	progRef.P = p
 	_, err = p.Run()
 	return err
 }

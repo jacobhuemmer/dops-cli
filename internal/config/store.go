@@ -85,7 +85,7 @@ func (s *FileConfigStore) EnsureDefaults() (*domain.Config, error) {
 
 func defaultConfig() *domain.Config {
 	return &domain.Config{
-		Theme:    "tokyonight",
+		Theme:    "tokyomidnight",
 		Defaults: domain.Defaults{MaxRiskLevel: domain.RiskMedium},
 		Catalogs: []domain.Catalog{},
 		Vars: domain.Vars{

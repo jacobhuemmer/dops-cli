@@ -12,6 +12,9 @@ import (
 //go:embed tokyonight.json
 var bundledTokyonight []byte
 
+//go:embed tokyomidnight.json
+var bundledTokyomidnight []byte
+
 type ThemeLoader interface {
 	Load(name string) (*domain.ThemeFile, error)
 }
@@ -43,9 +46,9 @@ func (l *FileThemeLoader) Load(name string) (*domain.ThemeFile, error) {
 		return tf, nil
 	}
 
-	// 3. Fall back to tokyonight
-	if name != "tokyonight" {
-		return l.loadBundled("tokyonight")
+	// 3. Fall back to tokyomidnight
+	if name != "tokyomidnight" {
+		return l.loadBundled("tokyomidnight")
 	}
 
 	return nil, fmt.Errorf("theme %q not found and fallback failed", name)
@@ -55,6 +58,8 @@ func (l *FileThemeLoader) loadBundled(name string) (*domain.ThemeFile, error) {
 	switch name {
 	case "tokyonight":
 		return parseTheme(bundledTokyonight)
+	case "tokyomidnight":
+		return parseTheme(bundledTokyomidnight)
 	default:
 		return nil, fmt.Errorf("no bundled theme %q", name)
 	}

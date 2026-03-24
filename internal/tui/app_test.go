@@ -4,13 +4,19 @@ import (
 	"dops/internal/catalog"
 	"dops/internal/domain"
 	"dops/internal/theme"
+	"dops/internal/tui/output"
 	"dops/internal/tui/palette"
 	"dops/internal/tui/sidebar"
 	"dops/internal/tui/wizard"
+	"regexp"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	lipgloss "charm.land/lipgloss/v2"
 )
+
+var appANSIPattern = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
 
 func testStyles() *theme.Styles {
 	return theme.BuildStyles(&theme.ResolvedTheme{
@@ -260,5 +266,41 @@ func TestApp_MouseClickTranslation(t *testing.T) {
 	}
 	if sel.Runbook.ID != "default.hello-world" {
 		t.Errorf("selected = %q, want default.hello-world", sel.Runbook.ID)
+	}
+}
+
+func TestApp_ClickOutputFooterCopiesLogPath(t *testing.T) {
+	m := NewApp(testCatalogs(), testStyles())
+	m.Init()
+
+	rb := domain.Runbook{ID: "default.hello-world", Name: "hello-world", Version: "1.0.0"}
+	cat := domain.Catalog{Name: "default", Path: "/tmp/default"}
+	m.selected = &rb
+	m.selCat = &cat
+	m.output.SetCommand("dops run default.hello-world")
+	m.output, _ = m.output.Update(output.ExecutionDoneMsg{LogPath: "/tmp/test.log"})
+
+	result, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	app := result.(App)
+	view := app.View().Content
+	lines := strings.Split(view, "\n")
+
+	clickX, clickY := -1, -1
+	for y, line := range lines {
+		clean := appANSIPattern.ReplaceAllString(line, "")
+		if idx := strings.Index(clean, "Saved to /tmp/test.log"); idx >= 0 {
+			clickX = lipgloss.Width(clean[:idx]) + lipgloss.Width("Saved to ")/2
+			clickY = y
+			break
+		}
+	}
+
+	if clickY == -1 {
+		t.Fatal("footer text not found in rendered app view")
+	}
+
+	_, cmd := app.Update(tea.MouseClickMsg{X: clickX, Y: clickY, Button: tea.MouseLeft})
+	if cmd == nil {
+		t.Fatalf("click on rendered footer text at (%d,%d) should produce a copy command", clickX, clickY)
 	}
 }

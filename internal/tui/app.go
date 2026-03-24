@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -35,6 +36,13 @@ const (
 	statePalette
 )
 
+type focusTarget int
+
+const (
+	focusSidebar  focusTarget = iota
+	focusOutput
+)
+
 // Layout constants shared between rendering and mouse translation.
 const (
 	layoutMarginLeft = 3
@@ -43,19 +51,29 @@ const (
 	layoutPadLeft    = 1 // sidebar content left padding
 )
 
-type executionResultMsg struct {
-	Lines   []output.OutputLineMsg
+var tuiANSIPattern = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
+
+type executionDoneMsg struct {
 	LogPath string
+	Err     error
+}
+
+// ProgramRef holds a reference to the tea.Program that can be set after
+// program creation. Since AppDeps is copied by value into App, the pointer
+// to ProgramRef is shared across all copies, allowing late binding.
+type ProgramRef struct {
+	P *tea.Program
 }
 
 type AppDeps struct {
-	Styles    *theme.Styles
-	Store     config.ConfigStore
-	Runner    executor.Runner
-	LogWriter *adapters.LogWriter
-	Config    *domain.Config
-	Catalogs  []catalog.CatalogWithRunbooks
-	AltScreen bool
+	Styles     *theme.Styles
+	Store      config.ConfigStore
+	Runner     executor.Runner
+	LogWriter  *adapters.LogWriter
+	Config     *domain.Config
+	Catalogs   []catalog.CatalogWithRunbooks
+	AltScreen  bool
+	ProgramRef *ProgramRef
 }
 
 type copiedFlashMsg struct{}
@@ -72,6 +90,7 @@ type App struct {
 	width       int
 	height      int
 	copiedFlash bool // show "Copied to Clipboard" in metadata
+	focus       focusTarget
 }
 
 func NewApp(catalogs []catalog.CatalogWithRunbooks, styles *theme.Styles) App {
@@ -93,6 +112,7 @@ func NewAppWithDeps(deps AppDeps) App {
 func (m *App) SetConfig(cfg *domain.Config) {
 	m.deps.Config = cfg
 }
+
 
 func (m App) Init() tea.Cmd {
 	return m.sidebar.Init()
@@ -119,6 +139,13 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			case "ctrl+shift+p":
 				return m.openPalette()
+			case "tab", "shift+tab":
+				if m.focus == focusSidebar {
+					m.focus = focusOutput
+				} else {
+					m.focus = focusSidebar
+				}
+				return m, nil
 			}
 		}
 
@@ -127,7 +154,7 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cat := msg.Catalog
 		m.selected = &rb
 		m.selCat = &cat
-		m.output.Clear()
+		// Don't clear output — keep last execution visible until a new one starts.
 		return m, nil
 
 	case sidebar.RunbookExecuteMsg:
@@ -137,11 +164,8 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.selCat = &cat
 		return m.openWizard()
 
-	case executionResultMsg:
-		for _, line := range msg.Lines {
-			m.output, _ = m.output.Update(line)
-		}
-		m.output, _ = m.output.Update(output.ExecutionDoneMsg{LogPath: msg.LogPath})
+	case executionDoneMsg:
+		m.output, _ = m.output.Update(output.ExecutionDoneMsg{LogPath: msg.LogPath, Err: msg.Err})
 		return m, nil
 
 	case output.OutputLineMsg:
@@ -175,18 +199,45 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case copiedFlashMsg:
 		m.copiedFlash = false
 		return m, nil
+
+	case output.CopiedHeaderFlashMsg:
+		m.output.SetCopiedHeader(false)
+		return m, nil
+
+	case output.CopiedFooterFlashMsg:
+		m.output.SetCopiedFooter(false)
+		return m, nil
 	}
 
 	// Route to focused component
 	switch m.state {
 	case stateNormal:
-		// Check for metadata click first
+		// Check for click-to-copy targets
 		if isMouseClick(msg) {
-			if loc, cmd := m.handleMetadataClick(msg); cmd != nil {
+			if _, cmd := m.handleMetadataClick(msg); cmd != nil {
 				m.copiedFlash = true
-				_ = loc
 				return m, cmd
 			}
+			if cmd := m.handleOutputClick(msg); cmd != nil {
+				return m, cmd
+			}
+		}
+
+		// Route based on focus target.
+		if m.focus == focusOutput {
+			// Mouse events still go to sidebar if in sidebar area.
+			if isMouseMsg(msg) {
+				translated, inSidebar := m.translateMouseForSidebar(msg)
+				if inSidebar {
+					var cmd tea.Cmd
+					m.sidebar, cmd = m.sidebar.Update(translated)
+					return m, cmd
+				}
+				return m, nil
+			}
+			var cmd tea.Cmd
+			m.output, cmd = m.output.Update(msg)
+			return m, cmd
 		}
 
 		translated, inSidebar := m.translateMouseForSidebar(msg)
@@ -269,30 +320,50 @@ func (m App) startExecution(rb domain.Runbook, cat domain.Catalog, params map[st
 		env[strings.ToUpper(k)] = v
 	}
 
+	var prog *tea.Program
+	if m.deps.ProgramRef != nil {
+		prog = m.deps.ProgramRef.P
+	}
 	runner := m.deps.Runner
 	lw := m.deps.LogWriter
 	finalLogPath := logPath
 
+	// If we have a program reference, stream lines live via p.Send().
+	// Otherwise fall back to returning a single done message (e.g. in tests).
+	if prog != nil {
+		go func() {
+			lines, errs := runner.Run(context.Background(), scriptPath, env)
+			for line := range lines {
+				if lw != nil {
+					lw.WriteLine(line.Text)
+				}
+				prog.Send(output.OutputLineMsg{
+					Text:     line.Text,
+					IsStderr: line.IsStderr,
+				})
+			}
+			if lw != nil {
+				lw.Close()
+			}
+			err := <-errs
+			prog.Send(executionDoneMsg{LogPath: finalLogPath, Err: err})
+		}()
+		return m, nil
+	}
+
+	// Fallback: no program reference (tests). Collect and return as done msg.
 	return m, func() tea.Msg {
 		lines, errs := runner.Run(context.Background(), scriptPath, env)
-		var collected []output.OutputLineMsg
 		for line := range lines {
 			if lw != nil {
 				lw.WriteLine(line.Text)
 			}
-			collected = append(collected, output.OutputLineMsg{
-				Text:     line.Text,
-				IsStderr: line.IsStderr,
-			})
 		}
 		if lw != nil {
 			lw.Close()
 		}
-		<-errs
-		return executionResultMsg{
-			Lines:   collected,
-			LogPath: finalLogPath,
-		}
+		err := <-errs
+		return executionDoneMsg{LogPath: finalLogPath, Err: err}
 	}
 }
 
@@ -364,12 +435,21 @@ func (m App) viewNormal() tea.View {
 	sw        := sidebarWidth(innerW)
 	rightW    := clamp(innerW - sw - borderSize - gap, 1)
 	contentW  := clamp(rightW - borderSize, 1) // content width inside bordered panels
-	panelRows := clamp(m.height - layoutMarginTop - footerH - layoutMarginLeft, 1)
+	panelRows := clamp(m.height - layoutMarginTop - footerH, 1)
 
 	// --- Theme colors ---
-	var borderColor color.Color = lipgloss.NoColor{}
+	var borderColor, activeBorderColor color.Color
+	borderColor = lipgloss.NoColor{}
+	activeBorderColor = lipgloss.NoColor{}
 	if m.deps.Styles != nil {
 		borderColor = m.deps.Styles.Border.GetForeground()
+		activeBorderColor = m.deps.Styles.BorderActive.GetForeground()
+	}
+
+	// Focus-aware border colors.
+	sidebarBorderColor := borderColor
+	if m.focus == focusSidebar {
+		sidebarBorderColor = activeBorderColor
 	}
 
 	// --- Sidebar: anchor panel ---
@@ -378,7 +458,7 @@ func (m App) viewNormal() tea.View {
 
 	sidebarView := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
+		BorderForeground(sidebarBorderColor).
 		PaddingLeft(1).
 		Width(sw).
 		Height(sidebarContentH).
@@ -396,9 +476,21 @@ func (m App) viewNormal() tea.View {
 
 	metaRenderedH := lipgloss.Height(metaView)
 
-	// --- Output: bordered, fills remaining to match sidebar ---
+	// --- Output: manages its own three bordered sections ---
 	outputH := clamp(sidebarRenderedH - metaRenderedH, 3)
-	outputView := m.output.ViewWithSize(rightW, outputH)
+	outputW := clamp(rightW, 3)
+	m.output.SetSize(outputW, outputH)
+	m.output.SetFocused(m.focus == focusOutput)
+	outputView := m.output.View()
+	// When no session, fill the space with an empty bordered box.
+	if !m.output.HasSession() {
+		outputView = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(borderColor).
+			Width(clamp(outputW-borderSize, 1)).
+			Height(outputH).
+			Render("")
+	}
 
 	// --- Compose panels ---
 	rightPanel := lipgloss.JoinVertical(lipgloss.Left, metaView, outputView)
@@ -589,6 +681,69 @@ func (m App) handleMetadataClick(msg tea.Msg) (string, tea.Cmd) {
 			return copiedFlashMsg{}
 		}),
 	)
+}
+
+// handleOutputClick checks if a mouse click landed on the output header (command)
+// or footer (log path) text. If so, copies the value to clipboard.
+func (m *App) handleOutputClick(msg tea.Msg) tea.Cmd {
+	click, ok := msg.(tea.MouseClickMsg)
+	if !ok {
+		return nil
+	}
+
+	lines := strings.Split(tuiANSIPattern.ReplaceAllString(m.viewNormal().Content, ""), "\n")
+	if click.Y < 0 || click.Y >= len(lines) {
+		return nil
+	}
+	line := lines[click.Y]
+
+	var copyText, region string
+	if cmd := m.output.Command(); cmd != "" {
+		target := "$ " + cmd
+		if idx := strings.Index(line, target); idx >= 0 {
+			start := lipgloss.Width(line[:idx])
+			end := start + lipgloss.Width(target)
+			if click.X >= start && click.X < end {
+				copyText, region = cmd, "header"
+			}
+		}
+	}
+	if region == "" {
+		if logPath := m.output.LogPath(); logPath != "" {
+			target := "Saved to " + logPath
+			if idx := strings.Index(line, target); idx >= 0 {
+				start := lipgloss.Width(line[:idx])
+				end := start + lipgloss.Width(target)
+				if click.X >= start && click.X < end {
+					copyText, region = logPath, "footer"
+				}
+			}
+		}
+	}
+	if region == "" {
+		return nil
+	}
+
+	switch region {
+	case "header":
+		m.output.SetCopiedHeader(true)
+		return tea.Batch(
+			tea.SetClipboard(copyText),
+			tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+				return output.CopiedHeaderFlashMsg{}
+			}),
+		)
+	case "footer":
+		m.output.SetCopiedFooter(true)
+		return tea.Batch(
+			tea.SetClipboard(copyText),
+			tea.Tick(2*time.Second, func(time.Time) tea.Msg {
+				return output.CopiedFooterFlashMsg{}
+			}),
+		)
+	}
+
+	return nil
 }
 
 func appFooterState(s viewState) footer.State {
