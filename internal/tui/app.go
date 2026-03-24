@@ -262,6 +262,7 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case copiedFlashMsg:
 		m.copiedFlash = false
+		m.output.SetCopyFlash(false) // release copy lock
 		return m, nil
 
 	case output.CopyFlashExpiredMsg:
@@ -1210,15 +1211,17 @@ func (m *App) handleOutputClick(msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
-	// Background highlight on the clicked region + border badge.
+	// Guard: reject if a copy is already in progress.
+	if !m.output.TryCopy() {
+		return nil
+	}
+
+	// Green flash on the clicked region.
 	switch region {
 	case "header":
 		m.output.SetCopiedHeader(true)
 	case "footer":
 		m.output.SetCopiedFooter(true)
-	}
-	if !m.output.TryCopy() {
-		return nil // copy already in progress
 	}
 	return tea.Batch(
 		tea.SetClipboard(copyText),
