@@ -130,9 +130,9 @@ func hitTestRenderedText(rendered string, x, y int, target, copyText, region str
 // ---------------------------------------------------------------------------
 
 // bodyHeight returns the number of visible log lines.
-// Header = 1 row, Footer = 1 row, Log = rest.
+// Header(1) + gap(1) + log + gap(1) + Footer(1) = height.
 func (m Model) bodyHeight() int {
-	return max(1, m.height-2) // minus header + footer
+	return max(1, m.height-4) // minus header + footer + 2 gaps
 }
 
 // textWidth returns usable character width for log lines.
@@ -368,8 +368,8 @@ func (m Model) View() string {
 	logSuccessStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(successFg)
 	thumbStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(primaryFg)
 
-	// Header=1 row, Footer=1 row. Log gets the rest.
-	logH := max(1, m.height-2)
+	// Header(1) + gap(1) + log + gap(1) + Footer(1) = height.
+	logH := max(1, m.height-4)
 	searchBarH := 0
 	if m.searching || m.navigating {
 		searchBarH = 2
@@ -446,7 +446,10 @@ func (m Model) View() string {
 	scrollbar := m.renderScrollbar(logH, yOffset, visibleH, logContentStyle, thumbStyle)
 	logBox := lipgloss.JoinHorizontal(lipgloss.Top, contentStr, scrollbar)
 
-	return lipgloss.JoinVertical(lipgloss.Left, headerBox, logBox, footerBox)
+	// Gap rows between sections (empty, terminal background).
+	gap := lipgloss.NewStyle().Width(cw).Render("")
+
+	return lipgloss.JoinVertical(lipgloss.Left, headerBox, gap, logBox, gap, footerBox)
 }
 
 func (m Model) matchLineSet() map[int]bool {
