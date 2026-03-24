@@ -131,9 +131,9 @@ func hitTestRenderedText(rendered string, x, y int, target, copyText, region str
 // ---------------------------------------------------------------------------
 
 // bodyHeight returns the number of visible log lines.
-// Header(1) + gap(1) + logTopPad(1) + log + gap(1) + Footer(1) = height.
+// Header(1) + gap(1) + logTopPad(1) + log + logBottomPad(1) + gap(1) + Footer(1) = height.
 func (m Model) bodyHeight() int {
-	return max(1, m.height-5) // minus header + footer + 2 gaps + 1 log top pad
+	return max(1, m.height-6) // minus header + footer + 2 gaps + top pad + bottom pad
 }
 
 // textWidth returns usable character width for log lines.
@@ -202,6 +202,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			logStartRow := 3
 			m.selection.FocusX = msg.X
 			m.selection.FocusY = msg.Y - logStartRow
+		}
+		return m, nil
+
+	case tea.MouseReleaseMsg:
+		if m.selection.Active && !m.selection.IsEmpty() {
+			text := m.selection.ExtractText(m.visibleLineTexts())
+			if text != "" {
+				return m, tea.SetClipboard(text)
+			}
 		}
 		return m, nil
 	}
@@ -418,9 +427,10 @@ func (m Model) View() string {
 	logSuccessStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(successFg)
 	thumbStyle := lipgloss.NewStyle().Background(bgElemColor).Foreground(primaryFg)
 
-	// Header(1) + gap(1) + logTopPad(1) + visibleLines + gap(1) + Footer(1) = height.
+	// Header(1) + gap(1) + logTopPad(1) + visibleLines + logBottomPad(1) + gap(1) + Footer(1) = height.
 	logTopPad := 1
-	logH := max(1, m.height-4-logTopPad)
+	logBottomPad := 1
+	logH := max(1, m.height-4-logTopPad-logBottomPad)
 	searchBarH := 0
 	if m.searching || m.navigating {
 		searchBarH = 2
@@ -480,6 +490,8 @@ func (m Model) View() string {
 		}
 	}
 
+	logLines = append(logLines, blankLine) // bottom padding inside log
+
 	if m.searching {
 		logLines = append(logLines, logContentStyle.Width(logW).Render("  "+fmt.Sprintf("Search: %s▎", m.searchQuery)))
 		logLines = append(logLines, blankLine)
@@ -491,7 +503,7 @@ func (m Model) View() string {
 	}
 
 	contentStr := strings.Join(logLines, "\n")
-	scrollbar := m.renderScrollbar(logH+logTopPad, yOffset, visibleH, logContentStyle, thumbStyle)
+	scrollbar := m.renderScrollbar(logH+logTopPad+logBottomPad, yOffset, visibleH, logContentStyle, thumbStyle)
 	logBox := lipgloss.JoinHorizontal(lipgloss.Top, contentStr, scrollbar)
 
 	// Gap rows between sections (empty, terminal background).

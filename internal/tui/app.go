@@ -303,9 +303,9 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.sidebar, cmd = m.sidebar.Update(translated)
 					return m, cmd
 				}
-				// Forward mouse events to output for selection/scroll.
+				// Translate to output-local coordinates and forward.
 				var cmd tea.Cmd
-				m.output, cmd = m.output.Update(msg)
+				m.output, cmd = m.output.Update(m.translateMouseForOutput(msg))
 				return m, cmd
 			}
 			var cmd tea.Cmd
@@ -738,6 +738,42 @@ func clamp(v, min int) int {
 	return v
 }
 
+// translateMouseForOutput converts terminal-absolute mouse coordinates to
+// output content-relative coordinates (inside the output border).
+func (m App) translateMouseForOutput(msg tea.Msg) tea.Msg {
+	innerW := clamp(m.width-layoutMarginLeft, 1)
+	sw := sidebarWidth(innerW) + layoutBorderSize*2 + layoutPadLeft
+	originX := layoutMarginLeft + sw + 1 + layoutBorderSize // gap + border
+	// Metadata height varies; compute it.
+	borderSize := layoutBorderSize * 2
+	rightW := clamp(innerW-sidebarWidth(innerW)-borderSize-1, 1)
+	contentW := clamp(rightW-borderSize, 1)
+	metaContent := metadata.Render(m.selected, m.selCat, contentW, m.copiedFlash, m.deps.Styles)
+	metaView := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Width(contentW).Render(metaContent)
+	metaH := lipgloss.Height(metaView)
+	originY := layoutMarginTop + metaH + layoutBorderSize // below metadata + output border
+
+	switch msg := msg.(type) {
+	case tea.MouseClickMsg:
+		msg.X -= originX
+		msg.Y -= originY
+		return msg
+	case tea.MouseReleaseMsg:
+		msg.X -= originX
+		msg.Y -= originY
+		return msg
+	case tea.MouseMotionMsg:
+		msg.X -= originX
+		msg.Y -= originY
+		return msg
+	case tea.MouseWheelMsg:
+		msg.X -= originX
+		msg.Y -= originY
+		return msg
+	}
+	return msg
+}
+
 func sidebarWidth(totalWidth int) int {
 	w := totalWidth / 3
 	if w < 30 {
@@ -782,6 +818,8 @@ func (m App) focusTargetFromMouse(msg tea.Msg) (focusTarget, bool) {
 	switch msg := msg.(type) {
 	case tea.MouseClickMsg:
 		mx, my = msg.X, msg.Y
+	case tea.MouseReleaseMsg:
+		mx, my = msg.X, msg.Y
 	case tea.MouseMotionMsg:
 		mx, my = msg.X, msg.Y
 	case tea.MouseWheelMsg:
@@ -809,7 +847,7 @@ func (m App) focusTargetFromMouse(msg tea.Msg) (focusTarget, bool) {
 
 func isMouseMsg(msg tea.Msg) bool {
 	switch msg.(type) {
-	case tea.MouseClickMsg, tea.MouseMotionMsg:
+	case tea.MouseClickMsg, tea.MouseMotionMsg, tea.MouseReleaseMsg, tea.MouseWheelMsg:
 		return true
 	}
 	return false
