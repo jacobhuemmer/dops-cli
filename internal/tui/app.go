@@ -813,8 +813,18 @@ func (m App) translateMouseForSidebar(msg tea.Msg) (tea.Msg, bool) {
 		msg.X -= originX
 		msg.Y -= originY
 		return msg, inBounds
+	case tea.MouseReleaseMsg:
+		inBounds := msg.X >= layoutMarginLeft && msg.X < layoutMarginLeft+sw &&
+			msg.Y >= layoutMarginTop && msg.Y < m.height
+		msg.X -= originX
+		msg.Y -= originY
+		return msg, inBounds
+	case tea.MouseWheelMsg:
+		inBounds := msg.X >= layoutMarginLeft && msg.X < layoutMarginLeft+sw &&
+			msg.Y >= layoutMarginTop && msg.Y < m.height
+		return msg, inBounds
 	}
-	return msg, true
+	return msg, false
 }
 
 // focusTargetFromMouse returns which pane a mouse event is over.
