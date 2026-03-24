@@ -202,11 +202,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		} else {
 			m.selection.Reset()
 		}
-		// Don't return — let it fall through to the viewport for scroll state.
+		return m, nil
 
 	case tea.MouseMotionMsg:
-		// Only track drag when a button is held.
-		if m.selection.Active && msg.Button != 0 {
+		// In CellMotion mode, motion events are only sent when a button
+		// is held, so no need to check msg.Button.
+		if m.selection.Active {
 			logTop := 3
 			logCol := 3
 			m.selection.FocusX = max(0, msg.X-logCol)
