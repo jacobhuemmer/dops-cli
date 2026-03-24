@@ -16,6 +16,7 @@ import (
 	"dops/internal/domain"
 	"dops/internal/executor"
 	"dops/internal/theme"
+	"dops/internal/tui/confirm"
 	"dops/internal/tui/footer"
 	"dops/internal/tui/metadata"
 	"dops/internal/tui/output"
@@ -34,6 +35,7 @@ const (
 	stateNormal viewState = iota
 	stateWizard
 	statePalette
+	stateConfirm
 )
 
 type focusTarget int
@@ -84,6 +86,7 @@ type App struct {
 	output      output.Model
 	wizard      *wizard.Model
 	pal         *palette.Model
+	conf        *confirm.Model
 	selected    *domain.Runbook
 	selCat      *domain.Catalog
 	deps        AppDeps
@@ -208,7 +211,17 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case wizard.WizardSubmitMsg:
 		m.state = stateNormal
 		m.wizard = nil
+		return m.openConfirm(msg.Runbook, msg.Catalog, msg.Params)
+
+	case confirm.ConfirmAcceptMsg:
+		m.state = stateNormal
+		m.conf = nil
 		return m.startExecution(msg.Runbook, msg.Catalog, msg.Params)
+
+	case confirm.ConfirmCancelMsg:
+		m.state = stateNormal
+		m.conf = nil
+		return m, nil
 
 	case wizard.WizardCancelMsg:
 		m.state = stateNormal
@@ -302,6 +315,15 @@ func (m App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			p := *m.pal
 			p, cmd = p.Update(msg)
 			m.pal = &p
+			return m, cmd
+		}
+
+	case stateConfirm:
+		if m.conf != nil {
+			var cmd tea.Cmd
+			c := *m.conf
+			c, cmd = c.Update(msg)
+			m.conf = &c
 			return m, cmd
 		}
 	}
@@ -419,13 +441,24 @@ func (m App) openWizard() (tea.Model, tea.Cmd) {
 	resolved := m.resolveVars()
 
 	if wizard.ShouldSkip(m.selected.Parameters, resolved) {
-		return m.startExecution(*m.selected, *m.selCat, resolved)
+		return m.openConfirm(*m.selected, *m.selCat, resolved)
 	}
 
 	wiz := wizard.New(*m.selected, *m.selCat, resolved)
 	m.wizard = &wiz
 	m.state = stateWizard
 	return m, wiz.Init()
+}
+
+func (m App) openConfirm(rb domain.Runbook, cat domain.Catalog, params map[string]string) (tea.Model, tea.Cmd) {
+	// Low risk: skip confirmation, execute immediately.
+	if rb.RiskLevel == domain.RiskLow || rb.RiskLevel == "" {
+		return m.startExecution(rb, cat, params)
+	}
+	c := confirm.New(rb, cat, params, m.width*2/3, m.deps.Styles)
+	m.conf = &c
+	m.state = stateConfirm
+	return m, nil
 }
 
 func (m App) resolveVars() map[string]string {
@@ -448,7 +481,9 @@ func (m App) View() tea.View {
 
 	var v tea.View
 
-	if m.state == stateWizard && m.wizard != nil {
+	if m.state == stateConfirm && m.conf != nil {
+		v = m.viewConfirmOverlay()
+	} else if m.state == stateWizard && m.wizard != nil {
 		v = m.viewWizardOverlay()
 	} else if m.state == statePalette && m.pal != nil {
 		v = m.viewPaletteOverlay()
@@ -555,6 +590,29 @@ func (m App) viewNormal() tea.View {
 		Width(m.width).
 		Height(m.height).
 		Render(content)
+
+	return tea.NewView(content)
+}
+
+func (m App) viewConfirmOverlay() tea.View {
+	confView := m.conf.View()
+
+	overlayW := m.width * 2 / 3
+	if overlayW < 50 {
+		overlayW = 50
+	}
+
+	overlay := lipgloss.NewStyle().
+		Width(overlayW).
+		Render(confView)
+
+	content := lipgloss.Place(m.width, m.height,
+		lipgloss.Center, lipgloss.Center,
+		overlay,
+	)
+
+	footerView := footer.Render(footer.StateConfirm, m.width, m.deps.Styles)
+	content = lipgloss.JoinVertical(lipgloss.Left, content, footerView)
 
 	return tea.NewView(content)
 }
@@ -824,6 +882,8 @@ func appFooterState(s viewState) footer.State {
 		return footer.StateWizard
 	case statePalette:
 		return footer.StatePalette
+	case stateConfirm:
+		return footer.StateConfirm
 	default:
 		return footer.StateNormal
 	}
