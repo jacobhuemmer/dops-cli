@@ -1177,14 +1177,22 @@ func (m *App) handleOutputClick(msg tea.Msg) tea.Cmd {
 
 	var copyText, region string
 	if cmd := m.output.Command(); cmd != "" {
-		// Check if the clicked line contains any part of the header command.
-		// With wrapping, "$ dops run ..." spans multiple lines.
-		// Match: line starts with "$ " or matches a continuation of the command.
-		if strings.Contains(line, "$ ") || strings.Contains(line, "dops run") {
-			// Verify the click is in the output header area (not the footer "Saved to" line).
-			if !strings.Contains(line, "Saved to") {
-				copyText, region = cmd, "header"
+		// Detect header click by position: header rows are between the
+		// output border top and the first gap row. Find the "$ " line
+		// and count how many lines the header spans.
+		bTop, _, _, _ := m.outputPaneBounds()
+		// Header starts at bTop (first row inside border).
+		// Find how many lines until the gap (empty line after header).
+		headerEnd := bTop
+		for i := bTop; i < len(lines); i++ {
+			trimmed := strings.TrimSpace(lines[i])
+			if trimmed == "" {
+				break // gap row = end of header
 			}
+			headerEnd = i
+		}
+		if click.Y >= bTop && click.Y <= headerEnd {
+			copyText, region = cmd, "header"
 		}
 	}
 	if region == "" {
