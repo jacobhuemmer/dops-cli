@@ -1,5 +1,28 @@
-*.DS_Store
+# Binary
 dops
-tapes/screenshots/
+bin/
+*.exe
+
+# macOS
+*.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment / credentials
+.env
+.env.*
+*.pem
+*.key
+
+# Test artifacts
+coverage.out
+coverage.html
+
+# VHS output (regenerated)
 tapes/screenshots/
 tapes/gifs/

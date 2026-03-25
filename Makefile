@@ -1,7 +1,7 @@
 BINARY := dops
 VERSION := 0.1.0
 BUILD_DIR := bin
-LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION)"
+LDFLAGS := -ldflags "-s -w -X dops/cmd.version=$(VERSION)"
 
 .PHONY: all build test lint clean install screenshots docker
 

@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -76,7 +75,7 @@ func (w *Watcher) loop() {
 			if !ok {
 				return
 			}
-			log.Printf("watcher error: %v", err)
+			_ = err // watcher errors are non-fatal; logging would corrupt MCP stdio
 		case <-w.done:
 			return
 		}

@@ -24,6 +24,7 @@ func newRootCmd(dopsDir string) *cobra.Command {
 		Use:           "dops",
 		Short:         "Developer Operations TUI",
 		Long:          "A terminal user interface for browsing and executing operational runbooks.",
+		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
