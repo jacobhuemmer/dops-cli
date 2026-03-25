@@ -398,8 +398,13 @@ func (m Model) updateSaveConfirm(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 }
 
 // advanceOrSave shows the save prompt if value was changed, otherwise advances.
+// Skips the prompt entirely for local/unscoped parameters since they aren't persisted.
 func (m Model) advanceOrSave() (Model, tea.Cmd) {
 	if m.changed {
+		scope := m.params[m.current].Scope
+		if scope == "" || scope == "local" {
+			return m.advance()
+		}
 		m.phase = phaseSave
 		m.cursor = 1 // default to "No"
 		return m, nil

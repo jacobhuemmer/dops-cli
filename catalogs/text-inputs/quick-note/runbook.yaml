@@ -1,0 +1,17 @@
+name: quick-note
+version: 1.0.0
+description: Append a timestamped note to a log file (demonstrates local scope — never saves)
+risk_level: low
+script: script.sh
+parameters:
+  - name: message
+    type: string
+    required: true
+    description: Note to append
+    scope: local
+  - name: log_file
+    type: file_path
+    required: false
+    description: Log file path (defaults to /tmp/dops-notes.log)
+    scope: runbook
+    default: /tmp/dops-notes.log

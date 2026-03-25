@@ -33,7 +33,7 @@ parameters:
     type: string              # string | boolean | integer | number | float | select | multi_select | file_path | resource_id
     required: true
     description: What this parameter does
-    scope: global             # global | catalog | runbook
+    scope: global             # local | global | catalog | runbook
     default: ""               # Optional default value
     secret: false             # If true, value is masked and stored encrypted
     options: []               # Required for select and multi_select types
@@ -66,6 +66,7 @@ parameters:
 
 | Scope | Saved to |
 |-------|----------|
+| local | Not saved — one-time value, never prompted to save |
 | global | config.json → vars.global.<name> |
 | catalog | config.json → vars.catalog.<catalog>.<name> |
 | runbook | config.json → vars.catalog.<catalog>.runbooks.<runbook>.<name> |

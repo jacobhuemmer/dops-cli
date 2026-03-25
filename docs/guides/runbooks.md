@@ -32,7 +32,7 @@ parameters:
     type: string              # See parameter types below
     required: true
     description: What this parameter does
-    scope: global             # global | catalog | runbook
+    scope: global             # local | global | catalog | runbook
     default: ""               # Optional default value
     secret: false             # If true, masked in UI, excluded from MCP
     options: []               # Required for select and multi_select
@@ -73,6 +73,7 @@ Scopes control where parameter values are saved when the user chooses "Save for 
 
 | Scope | Saved To | Use When |
 |-------|----------|----------|
+| `local` | Not saved | One-time values, never prompted to save |
 | `global` | `vars.global.<name>` | Shared across all runbooks (API tokens, regions) |
 | `catalog` | `vars.catalog.<cat>.<name>` | Shared within a catalog |
 | `runbook` | `vars.catalog.<cat>.runbooks.<rb>.<name>` | Specific to one runbook |

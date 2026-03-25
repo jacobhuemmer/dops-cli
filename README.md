@@ -110,7 +110,7 @@ parameters:
     type: string
     required: true
     description: The endpoint to check
-    scope: global
+    scope: global             # local | global | catalog | runbook
 ```
 
 3. **Launch dops**:
