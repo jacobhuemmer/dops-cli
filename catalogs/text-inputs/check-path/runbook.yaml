@@ -1,0 +1,11 @@
+name: check-path
+version: 1.0.0
+description: Check if a file path exists and show metadata (demonstrates file_path)
+risk_level: low
+script: script.sh
+parameters:
+  - name: target
+    type: file_path
+    required: true
+    description: File or directory path to check
+    scope: runbook

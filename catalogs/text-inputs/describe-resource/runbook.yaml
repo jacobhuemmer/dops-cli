@@ -1,0 +1,21 @@
+name: describe-resource
+version: 1.0.0
+description: Look up metadata for a cloud resource (demonstrates resource_id)
+risk_level: low
+script: script.sh
+parameters:
+  - name: resource
+    type: resource_id
+    required: true
+    description: Resource identifier (e.g. arn:aws:s3:::my-bucket)
+    scope: runbook
+  - name: format
+    type: select
+    required: false
+    description: Output format
+    scope: runbook
+    default: table
+    options:
+      - table
+      - json
+      - yaml

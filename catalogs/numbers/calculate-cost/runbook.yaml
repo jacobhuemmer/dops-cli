@@ -1,0 +1,18 @@
+name: calculate-cost
+version: 1.0.0
+description: Estimate cloud compute cost (demonstrates float params)
+risk_level: low
+script: script.sh
+parameters:
+  - name: hours
+    type: float
+    required: true
+    description: Number of compute hours
+    scope: runbook
+    default: 1.0
+  - name: rate
+    type: float
+    required: true
+    description: Hourly rate in USD
+    scope: runbook
+    default: 0.096

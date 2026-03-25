@@ -1,0 +1,18 @@
+name: count-lines
+version: 1.0.0
+description: Count lines in a range (demonstrates integer params, negative values allowed)
+risk_level: low
+script: script.sh
+parameters:
+  - name: start_line
+    type: integer
+    required: true
+    description: Starting line number (negative counts from end)
+    scope: runbook
+    default: 1
+  - name: end_line
+    type: integer
+    required: false
+    description: Ending line number (negative counts from end)
+    scope: runbook
+    default: -1
