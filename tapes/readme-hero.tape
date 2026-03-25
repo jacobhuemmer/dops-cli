@@ -83,7 +83,7 @@ Sleep 500ms
 
 # Type version
 Type "v1.2.3"
-Sleep 500ms
+Sleep 1s
 
 Screenshot assets/hero-wizard-input.png
 
@@ -110,9 +110,18 @@ Screenshot assets/hero-wizard-multiselect.png
 Enter
 Sleep 500ms
 
-# Secret field — press enter to keep saved value
+# Save prompt for features — decline
+Enter
+Sleep 500ms
+
+# Secret field — type a fake API token
+Type "sk-dops-a1b2c3d4e5f6"
+Sleep 1s
+
 Screenshot assets/hero-wizard-secret.png
 
+Enter
+Sleep 500ms
 Enter
 Sleep 500ms
 
@@ -123,7 +132,10 @@ Sleep 500ms
 # Risk confirmation (high risk = y/N)
 Screenshot assets/hero-confirm.png
 
-Type "y"
+# Toggle to Yes, then confirm
+Left
+Sleep 300ms
+Enter
 Sleep 4s
 
 Screenshot assets/hero-execution.png
