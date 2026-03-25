@@ -19,6 +19,7 @@ import (
 // ServerConfig holds dependencies for the MCP server.
 type ServerConfig struct {
 	Version  string
+	DopsHome string
 	Catalogs []catpkg.CatalogWithRunbooks
 	Runner   executor.Runner
 	Config   *domain.Config
@@ -31,6 +32,7 @@ type Server struct {
 	catalogs []catpkg.CatalogWithRunbooks
 	runner   executor.Runner
 	cfg      *domain.Config
+	dopsHome string
 }
 
 // NewServer creates a new MCP server with tools and resources from the catalog.
@@ -45,10 +47,13 @@ func NewServer(sc ServerConfig) *Server {
 		catalogs: sc.Catalogs,
 		runner:   sc.Runner,
 		cfg:      sc.Config,
+		dopsHome: sc.DopsHome,
 	}
 
 	s.registerTools(sc.MaxRisk)
 	s.registerResources()
+	s.registerSchemaResources()
+	s.registerPrompts()
 
 	return s
 }
@@ -167,6 +172,40 @@ func (s *Server) registerResources() {
 				}
 			}
 			return nil, fmt.Errorf("runbook not found: %s", id)
+		},
+	)
+}
+
+func (s *Server) registerSchemaResources() {
+	s.srv.AddResource(
+		&mcpsdk.Resource{
+			URI:         "dops://schema/runbook",
+			Name:        "Runbook YAML Schema",
+			Description: "Complete schema reference for runbook.yaml files",
+			MIMEType:    "text/markdown",
+		},
+		func(ctx context.Context, req *mcpsdk.ReadResourceRequest) (*mcpsdk.ReadResourceResult, error) {
+			return &mcpsdk.ReadResourceResult{
+				Contents: []*mcpsdk.ResourceContents{
+					{URI: "dops://schema/runbook", MIMEType: "text/markdown", Text: runbookSchema},
+				},
+			}, nil
+		},
+	)
+
+	s.srv.AddResource(
+		&mcpsdk.Resource{
+			URI:         "dops://schema/shell-style",
+			Name:        "Shell Script Style Guide",
+			Description: "POSIX-compatible shell style guide for dops runbook scripts",
+			MIMEType:    "text/markdown",
+		},
+		func(ctx context.Context, req *mcpsdk.ReadResourceRequest) (*mcpsdk.ReadResourceResult, error) {
+			return &mcpsdk.ReadResourceResult{
+				Contents: []*mcpsdk.ResourceContents{
+					{URI: "dops://schema/shell-style", MIMEType: "text/markdown", Text: shellStyleGuide},
+				},
+			}, nil
 		},
 	)
 }
