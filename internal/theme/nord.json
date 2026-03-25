@@ -31,7 +31,7 @@
   "theme": {
     "background":        { "dark": "nord0",  "light": "snowBg"      },
     "backgroundPanel":   { "dark": "nord1",  "light": "snowPanel"   },
-    "backgroundElement": { "dark": "nord3",  "light": "snowSurface" },
+    "backgroundElement": { "dark": "nord1",  "light": "snowSurface" },
     "text":              { "dark": "nord4",  "light": "snowText"    },
     "textMuted":         { "dark": "nord3",  "light": "snowMuted"   },
     "primary":           { "dark": "nord8",  "light": "snowBlue"    },

@@ -9,8 +9,8 @@ import (
 	"dops/internal/domain"
 )
 
-//go:embed tokyonight.json
-var bundledTokyonight []byte
+//go:embed doop.json
+var bundledDoop []byte
 
 //go:embed tokyomidnight.json
 var bundledTokyomidnight []byte
@@ -58,7 +58,7 @@ func (l *FileThemeLoader) Load(name string) (*domain.ThemeFile, error) {
 		return tf, nil
 	}
 
-	// 3. Fall back to tokyomidnight
+	// 3. Fall back to tokyomidnight (default theme)
 	if name != "tokyomidnight" {
 		return l.loadBundled("tokyomidnight")
 	}
@@ -68,8 +68,8 @@ func (l *FileThemeLoader) Load(name string) (*domain.ThemeFile, error) {
 
 func (l *FileThemeLoader) loadBundled(name string) (*domain.ThemeFile, error) {
 	switch name {
-	case "tokyonight":
-		return parseTheme(bundledTokyonight)
+	case "doop":
+		return parseTheme(bundledDoop)
 	case "tokyomidnight":
 		return parseTheme(bundledTokyomidnight)
 	case "catppuccin-mocha":

@@ -1,10 +1,10 @@
 {
   "$schema": "https://dops.sh/theme.json",
-  "name": "tokyonight",
+  "name": "doop",
   "defs": {
     "bg":        "#1a1b26",
     "bgDark":    "#16161e",
-    "bgElem":    "#4a526d",
+    "bgElem":    "#292e42",
     "fg":        "#c0caf5",
     "fgMuted":   "#565f89",
     "blue":      "#7aa2f7",
