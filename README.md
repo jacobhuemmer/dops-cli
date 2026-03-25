@@ -239,7 +239,7 @@ make ci          # Run CI checks (vet + test + build)
 
 ## Support
 
-If you find dops useful, consider [buying me a coffee](https://buymeacoffee.com/jacobhuemmer)!
+If you find do(ops) cli useful, consider [buying me a coffee](https://buymeacoffee.com/jacobhuemmer)!
 
 <p align="center">
   <a href="https://buymeacoffee.com/jacobhuemmer">
