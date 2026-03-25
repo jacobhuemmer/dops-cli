@@ -8,7 +8,8 @@ import (
 
 	"dops/internal/adapters"
 	"dops/internal/config"
-	"dops/internal/crypto"
+	"dops/internal/domain"
+	"dops/internal/vault"
 
 	"github.com/spf13/cobra"
 )
@@ -21,20 +22,20 @@ func newConfigCmd(dopsDir string) *cobra.Command {
 
 	configPath := filepath.Join(dopsDir, "config.json")
 	keysDir := filepath.Join(dopsDir, "keys")
+	vaultPath := filepath.Join(dopsDir, "vault.json")
 	fs := adapters.NewOSFileSystem()
 	store := config.NewFileStore(fs, configPath)
+	vlt := vault.New(vaultPath, keysDir)
 
-	cmd.AddCommand(newConfigSetCmd(store, keysDir))
-	cmd.AddCommand(newConfigGetCmd(store))
-	cmd.AddCommand(newConfigUnsetCmd(store))
-	cmd.AddCommand(newConfigListCmd(store, keysDir))
+	cmd.AddCommand(newConfigSetCmd(store, vlt))
+	cmd.AddCommand(newConfigGetCmd(store, vlt))
+	cmd.AddCommand(newConfigUnsetCmd(store, vlt))
+	cmd.AddCommand(newConfigListCmd(store, vlt))
 
 	return cmd
 }
 
-func newConfigSetCmd(store *config.FileConfigStore, keysDir string) *cobra.Command {
-	var secret bool
-
+func newConfigSetCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set key=value",
 		Short: "Set a configuration value",
@@ -54,32 +55,29 @@ func newConfigSetCmd(store *config.FileConfigStore, keysDir string) *cobra.Comma
 				}
 			}
 
-			var finalValue any = value
-			if secret {
-				enc, err := crypto.NewAgeEncrypter(keysDir)
-				if err != nil {
-					return fmt.Errorf("init encryption: %w", err)
-				}
-				encrypted, err := enc.Encrypt(value)
-				if err != nil {
-					return fmt.Errorf("encrypt: %w", err)
-				}
-				finalValue = encrypted
+			// Load vars from vault into config for path routing.
+			vars, err := vlt.Load()
+			if err != nil {
+				return fmt.Errorf("load vault: %w", err)
 			}
+			cfg.Vars = *vars
 
-			if err := config.Set(cfg, key, finalValue); err != nil {
+			if err := config.Set(cfg, key, value); err != nil {
 				return err
 			}
 
+			// Vars go to vault, everything else to config.json.
+			if strings.HasPrefix(key, "vars.") {
+				return vlt.Save(&cfg.Vars)
+			}
 			return store.Save(cfg)
 		},
 	}
 
-	cmd.Flags().BoolVar(&secret, "secret", false, "Encrypt the value before storing")
 	return cmd
 }
 
-func newConfigGetCmd(store *config.FileConfigStore) *cobra.Command {
+func newConfigGetCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get key",
 		Short: "Get a configuration value",
@@ -90,14 +88,16 @@ func newConfigGetCmd(store *config.FileConfigStore) *cobra.Command {
 				return err
 			}
 
+			// Load vars from vault for vars.* lookups.
+			vars, err := vlt.Load()
+			if err != nil {
+				return fmt.Errorf("load vault: %w", err)
+			}
+			cfg.Vars = *vars
+
 			val, err := config.Get(cfg, args[0])
 			if err != nil {
 				return err
-			}
-
-			if s, ok := val.(string); ok && crypto.IsEncrypted(s) {
-				fmt.Fprintln(cmd.OutOrStdout(), "****")
-				return nil
 			}
 
 			fmt.Fprintln(cmd.OutOrStdout(), val)
@@ -106,7 +106,7 @@ func newConfigGetCmd(store *config.FileConfigStore) *cobra.Command {
 	}
 }
 
-func newConfigUnsetCmd(store *config.FileConfigStore) *cobra.Command {
+func newConfigUnsetCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.Command {
 	return &cobra.Command{
 		Use:   "unset key",
 		Short: "Remove a configuration value",
@@ -117,16 +117,23 @@ func newConfigUnsetCmd(store *config.FileConfigStore) *cobra.Command {
 				return err
 			}
 
+			// Load vars from vault for unset routing.
+			vars, err := vlt.Load()
+			if err != nil {
+				return fmt.Errorf("load vault: %w", err)
+			}
+			cfg.Vars = *vars
+
 			if err := config.Unset(cfg, args[0]); err != nil {
 				return err
 			}
 
-			return store.Save(cfg)
+			return vlt.Save(&cfg.Vars)
 		},
 	}
 }
 
-func newConfigListCmd(store *config.FileConfigStore, keysDir string) *cobra.Command {
+func newConfigListCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "Display the full configuration",
@@ -136,8 +143,28 @@ func newConfigListCmd(store *config.FileConfigStore, keysDir string) *cobra.Comm
 				return err
 			}
 
-			masked := crypto.MaskSecrets(cfg)
-			data, err := json.MarshalIndent(masked, "", "  ")
+			// Vars are excluded from config.json serialization (json:"-"),
+			// so build a combined view for display.
+			type configView struct {
+				Theme    string           `json:"theme"`
+				Defaults json.RawMessage  `json:"defaults"`
+				Catalogs json.RawMessage  `json:"catalogs"`
+				Vars     *domain.Vars     `json:"vars,omitempty"`
+			}
+
+			vars, vaultErr := vlt.Load()
+			view := configView{Theme: cfg.Theme}
+			if b, e := json.Marshal(cfg.Defaults); e == nil {
+				view.Defaults = b
+			}
+			if b, e := json.Marshal(cfg.Catalogs); e == nil {
+				view.Catalogs = b
+			}
+			if vaultErr == nil && (len(vars.Global) > 0 || len(vars.Catalog) > 0) {
+				view.Vars = vars
+			}
+
+			data, err := json.MarshalIndent(view, "", "  ")
 			if err != nil {
 				return err
 			}

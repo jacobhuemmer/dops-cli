@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"dops/internal/domain"
+	"dops/internal/vault"
 )
 
 func setupRunEnv(t *testing.T) (string, string) {
@@ -28,13 +29,21 @@ func setupRunEnv(t *testing.T) (string, string) {
 				Policy: domain.CatalogPolicy{MaxRiskLevel: domain.RiskMedium},
 			},
 		},
-		Vars: domain.Vars{
-			Global:  map[string]any{"region": "us-east-1"},
-			Catalog: map[string]domain.CatalogVars{},
-		},
 	}
 	data, _ := json.MarshalIndent(cfg, "", "  ")
 	os.WriteFile(configPath, data, 0o644)
+
+	// Seed vault with initial vars.
+	vaultPath := filepath.Join(dopsDir, "vault.json")
+	keysDir := filepath.Join(dopsDir, "keys")
+	vlt := vault.New(vaultPath, keysDir)
+	vars := &domain.Vars{
+		Global:  map[string]any{"region": "us-east-1"},
+		Catalog: map[string]domain.CatalogVars{},
+	}
+	if err := vlt.Save(vars); err != nil {
+		t.Fatalf("seed vault: %v", err)
+	}
 
 	// Write runbook.yaml
 	runbookYAML := `id: "default.hello-world"
@@ -98,9 +107,9 @@ func TestRun_DryRun(t *testing.T) {
 }
 
 func TestRun_NoSave(t *testing.T) {
-	dopsDir, configPath := setupRunEnv(t)
+	dopsDir, _ := setupRunEnv(t)
 
-	before := readConfig(t, configPath)
+	varsBefore := readVault(t, dopsDir)
 
 	_, err := executeCmd([]string{
 		"run", "default.hello-world",
@@ -111,18 +120,18 @@ func TestRun_NoSave(t *testing.T) {
 		t.Fatalf("run --no-save: %v", err)
 	}
 
-	after := readConfig(t, configPath)
+	varsAfter := readVault(t, dopsDir)
 
-	// Config should not have changed
-	beforeJSON, _ := json.Marshal(before)
-	afterJSON, _ := json.Marshal(after)
+	// Vault should not have changed
+	beforeJSON, _ := json.Marshal(varsBefore)
+	afterJSON, _ := json.Marshal(varsAfter)
 	if string(beforeJSON) != string(afterJSON) {
-		t.Error("config was modified despite --no-save")
+		t.Error("vault was modified despite --no-save")
 	}
 }
 
 func TestRun_ParamOverride(t *testing.T) {
-	dopsDir, configPath := setupRunEnv(t)
+	dopsDir, _ := setupRunEnv(t)
 
 	_, err := executeCmd([]string{
 		"run", "default.hello-world",
@@ -132,11 +141,11 @@ func TestRun_ParamOverride(t *testing.T) {
 		t.Fatalf("run with --param: %v", err)
 	}
 
-	// Verify param was saved to config
-	cfg := readConfig(t, configPath)
-	val, ok := cfg.Vars.Global["greeting"]
+	// Verify param was saved to vault
+	vars := readVault(t, dopsDir)
+	val, ok := vars.Global["greeting"]
 	if !ok {
-		t.Fatal("greeting not saved to config")
+		t.Fatal("greeting not saved to vault")
 	}
 	if val != "override-value" {
 		t.Errorf("greeting = %v, want override-value", val)

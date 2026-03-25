@@ -38,10 +38,12 @@ AI agents can discover and execute runbooks via the [Model Context Protocol](htt
 - **Security** — sensitive params excluded from schema, loaded from local config
 - **Progress** — real-time output streaming via MCP notifications
 
-### Configuration
+### Configuration & Security
 
-- **Local config** — stored in `~/.dops/config.json`
-- **Secret encryption** — sensitive values encrypted at rest with [age](https://github.com/FiloSottile/age) (key auto-generated at `~/.dops/keys/keys.txt`)
+- **Local config** — user-editable settings in `~/.dops/config.json`
+- **Encrypted vault** — saved parameter values in `~/.dops/vault.json`, encrypted with [age](https://github.com/FiloSottile/age) (X25519 + ChaCha20-Poly1305)
+- **Tamper detection** — age AEAD authenticates the entire vault; any modification causes decryption failure
+- **File permissions** — `vault.json` and `keys.txt` locked to `0600`
 
 ### CLI
 
@@ -134,6 +136,62 @@ dops
 | `multi_select` | Multiple selections from options | features, policies |
 | `file_path` | File path input | config files |
 | `resource_id` | Resource identifier | ARNs, URIs |
+
+## Vault
+
+dops stores all saved parameter values in an encrypted vault (`~/.dops/vault.json`) rather than in plaintext config.
+
+```
+~/.dops/
+├── config.json    # User-editable (theme, catalogs, defaults)
+├── vault.json     # Encrypted parameter store (0600)
+└── keys/
+    └── keys.txt   # age X25519 identity (0600, auto-generated)
+```
+
+### How It Works
+
+The vault encrypts its entire contents as a single [age](https://age-encryption.org/) blob. When saved, all parameter values are serialized to JSON, encrypted, and wrapped in a versioned envelope:
+
+```json
+{
+  "version": 1,
+  "data": "age1..."
+}
+```
+
+Values inside the vault are stored as plaintext — there is no per-value encryption. The vault provides encryption at the file level.
+
+### Tamper Detection
+
+The vault uses age's authenticated encryption (ChaCha20-Poly1305 AEAD). The Poly1305 authentication tag covers the entire ciphertext, so any modification — even a single bit flip — causes decryption to fail. This is similar to how [sops](https://github.com/getsops/sops) uses a MAC to detect tampering, but with a key difference:
+
+| | sops | dops vault |
+|---|------|------------|
+| **Encryption** | Per-value (keys visible, values encrypted) | Entire file (fully opaque) |
+| **Tamper detection** | Explicit HMAC over all encrypted values | Inherent from AEAD authentication tag |
+| **Diffability** | Human-readable diffs (keys in plaintext) | Opaque blob — no meaningful diffs |
+| **Selective edits** | Edit individual values in place | Must decrypt, modify, re-encrypt entire file |
+
+sops needs a separate MAC because it encrypts values individually — without it, someone could swap or modify encrypted values undetected. The dops vault encrypts everything as one blob, so AEAD covers the entire payload inherently. There is nothing to tamper with selectively.
+
+If `vault.json` is modified outside dops, the CLI prints a clear error:
+
+```
+vault.json is corrupted or was modified outside dops
+```
+
+Recovery: delete `vault.json` and re-enter saved values.
+
+### Key Management
+
+- Identity auto-generated at `~/.dops/keys/keys.txt` on first use
+- Single key per dops installation
+- If `keys.txt` is lost, the vault cannot be decrypted — delete and re-enter values
+
+### Migration
+
+Users upgrading from v0.2.0 get automatic one-time migration: vars are moved from `config.json` to `vault.json` on first startup. No user action required.
 
 ## MCP Integration
 

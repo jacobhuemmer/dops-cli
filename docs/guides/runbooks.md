@@ -69,14 +69,14 @@ parameters:
 
 ## Parameter Scopes
 
-Scopes control where parameter values are saved when the user chooses "Save for future runs."
+Scopes control where parameter values are saved when the user chooses "Save for future runs." Saved values are stored in the encrypted `vault.json`.
 
 | Scope | Saved To | Use When |
 |-------|----------|----------|
 | `local` | Not saved | One-time values, never prompted to save |
-| `global` | `vars.global.<name>` | Shared across all runbooks (API tokens, regions) |
-| `catalog` | `vars.catalog.<cat>.<name>` | Shared within a catalog |
-| `runbook` | `vars.catalog.<cat>.runbooks.<rb>.<name>` | Specific to one runbook |
+| `global` | `vault.json → vars.global.<name>` | Shared across all runbooks (API tokens, regions) |
+| `catalog` | `vault.json → vars.catalog.<cat>.<name>` | Shared within a catalog |
+| `runbook` | `vault.json → vars.catalog.<cat>.runbooks.<rb>.<name>` | Specific to one runbook |
 
 ---
 

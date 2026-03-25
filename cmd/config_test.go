@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"dops/internal/domain"
+	"dops/internal/vault"
 )
 
 func setupTestEnv(t *testing.T) (string, string) {
@@ -22,15 +23,35 @@ func setupTestEnv(t *testing.T) (string, string) {
 		Theme:    "tokyonight",
 		Defaults: domain.Defaults{MaxRiskLevel: domain.RiskMedium},
 		Catalogs: []domain.Catalog{},
-		Vars: domain.Vars{
-			Global:  map[string]any{"region": "us-east-1"},
-			Catalog: map[string]domain.CatalogVars{},
-		},
 	}
 	data, _ := json.MarshalIndent(cfg, "", "  ")
 	os.WriteFile(configPath, data, 0o644)
 
+	// Seed vault with initial vars.
+	vaultPath := filepath.Join(dopsDir, "vault.json")
+	keysDir := filepath.Join(dopsDir, "keys")
+	vlt := vault.New(vaultPath, keysDir)
+	vars := &domain.Vars{
+		Global:  map[string]any{"region": "us-east-1"},
+		Catalog: map[string]domain.CatalogVars{},
+	}
+	if err := vlt.Save(vars); err != nil {
+		t.Fatalf("seed vault: %v", err)
+	}
+
 	return dopsDir, configPath
+}
+
+func readVault(t *testing.T, dopsDir string) *domain.Vars {
+	t.Helper()
+	vaultPath := filepath.Join(dopsDir, "vault.json")
+	keysDir := filepath.Join(dopsDir, "keys")
+	vlt := vault.New(vaultPath, keysDir)
+	vars, err := vlt.Load()
+	if err != nil {
+		t.Fatalf("load vault: %v", err)
+	}
+	return vars
 }
 
 func readConfig(t *testing.T, path string) *domain.Config {
@@ -71,41 +92,38 @@ func TestConfigSet_Theme(t *testing.T) {
 }
 
 func TestConfigSet_GlobalVar(t *testing.T) {
-	dopsDir, configPath := setupTestEnv(t)
+	dopsDir, _ := setupTestEnv(t)
 
 	_, err := executeCmd([]string{"config", "set", "vars.global.environment=production"}, dopsDir)
 	if err != nil {
 		t.Fatalf("config set: %v", err)
 	}
 
-	cfg := readConfig(t, configPath)
-	if cfg.Vars.Global["environment"] != "production" {
-		t.Errorf("environment = %v, want production", cfg.Vars.Global["environment"])
+	vars := readVault(t, dopsDir)
+	if vars.Global["environment"] != "production" {
+		t.Errorf("environment = %v, want production", vars.Global["environment"])
 	}
-	if cfg.Vars.Global["region"] != "us-east-1" {
-		t.Errorf("region = %v, want us-east-1", cfg.Vars.Global["region"])
+	if vars.Global["region"] != "us-east-1" {
+		t.Errorf("region = %v, want us-east-1", vars.Global["region"])
 	}
 }
 
 func TestConfigSet_Secret(t *testing.T) {
-	dopsDir, configPath := setupTestEnv(t)
+	dopsDir, _ := setupTestEnv(t)
 
-	_, err := executeCmd([]string{"config", "set", "vars.global.token=mysecret", "--secret"}, dopsDir)
+	// Secrets are stored as plaintext inside the encrypted vault — no per-value encryption.
+	_, err := executeCmd([]string{"config", "set", "vars.global.token=mysecret"}, dopsDir)
 	if err != nil {
-		t.Fatalf("config set --secret: %v", err)
+		t.Fatalf("config set: %v", err)
 	}
 
-	cfg := readConfig(t, configPath)
-	val, ok := cfg.Vars.Global["token"]
+	vars := readVault(t, dopsDir)
+	val, ok := vars.Global["token"]
 	if !ok {
-		t.Fatal("token not found in config")
+		t.Fatal("token not found in vault")
 	}
-	s, ok := val.(string)
-	if !ok {
-		t.Fatalf("token is not a string: %T", val)
-	}
-	if s == "mysecret" {
-		t.Error("secret value was stored in plaintext")
+	if val != "mysecret" {
+		t.Errorf("token = %v, want mysecret (plaintext inside encrypted vault)", val)
 	}
 }
 
@@ -132,16 +150,16 @@ func TestConfigGet_NotFound(t *testing.T) {
 }
 
 func TestConfigUnset(t *testing.T) {
-	dopsDir, configPath := setupTestEnv(t)
+	dopsDir, _ := setupTestEnv(t)
 
 	_, err := executeCmd([]string{"config", "unset", "vars.global.region"}, dopsDir)
 	if err != nil {
 		t.Fatalf("config unset: %v", err)
 	}
 
-	cfg := readConfig(t, configPath)
-	if _, ok := cfg.Vars.Global["region"]; ok {
-		t.Error("region should have been removed")
+	vars := readVault(t, dopsDir)
+	if _, ok := vars.Global["region"]; ok {
+		t.Error("region should have been removed from vault")
 	}
 }
 

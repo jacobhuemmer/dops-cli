@@ -11,7 +11,6 @@ import (
 	"dops/internal/adapters"
 	"dops/internal/catalog"
 	"dops/internal/config"
-	"dops/internal/crypto"
 	"dops/internal/domain"
 	"dops/internal/executor"
 	"dops/internal/theme"
@@ -25,6 +24,7 @@ import (
 	"dops/internal/tui/wizard"
 	"dops/internal/update"
 	"dops/internal/vars"
+	"dops/internal/vault"
 
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
@@ -164,8 +164,9 @@ type AppDeps struct {
 	AltScreen  bool
 	DryRun     bool
 	ProgramRef *ProgramRef
-	Version    string // current build version for update checks
-	DopsDir    string // ~/.dops directory for cache files
+	Version    string       // current build version for update checks
+	DopsDir    string       // ~/.dops directory for cache files
+	Vault      *vault.Vault // encrypted parameter storage
 }
 
 type copiedFlashMsg struct{}
@@ -630,9 +631,8 @@ func (m App) openWizard() (tea.Model, tea.Cmd) {
 	// Always show wizard — pre-fills saved values, user can accept or override.
 	wiz := wizard.New(*m.selected, *m.selCat, resolved)
 	wiz.SetStyles(m.deps.Styles)
-	if m.deps.Store != nil && m.deps.Config != nil {
-		keysDir := filepath.Join(m.deps.DopsDir, "keys")
-		wiz.SetStore(m.deps.Store, m.deps.Config, keysDir)
+	if m.deps.Config != nil {
+		wiz.SetStore(m.deps.Config, m.deps.Vault)
 	}
 	m.wizard = &wiz
 	m.state = stateWizard
@@ -654,19 +654,10 @@ func (m App) resolveVars() map[string]string {
 	if m.deps.Config == nil || m.selected == nil || m.selCat == nil {
 		return make(map[string]string)
 	}
-	base := vars.NewDefaultResolver()
-
-	// Use decrypting resolver so encrypted secrets display as plaintext in the wizard.
-	if m.deps.DopsDir != "" {
-		keysDir := filepath.Join(m.deps.DopsDir, "keys")
-		enc, err := crypto.NewAgeEncrypter(keysDir)
-		if err == nil {
-			resolver := vars.NewDecryptingResolver(base, enc)
-			return resolver.Resolve(m.deps.Config, m.selCat.Name, m.selected.Name, m.selected.Parameters)
-		}
-	}
-
-	return base.Resolve(m.deps.Config, m.selCat.Name, m.selected.Name, m.selected.Parameters)
+	// Vault stores all values as plaintext inside the encrypted blob,
+	// so no per-value decryption is needed.
+	resolver := vars.NewDefaultResolver()
+	return resolver.Resolve(m.deps.Config, m.selCat.Name, m.selected.Name, m.selected.Parameters)
 }
 
 func (m App) View() tea.View {

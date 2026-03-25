@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,9 +11,11 @@ import (
 	catpkg "dops/internal/catalog"
 	"dops/internal/cli"
 	"dops/internal/config"
+	"dops/internal/domain"
 	"dops/internal/executor"
 	"dops/internal/theme"
 	"dops/internal/tui"
+	"dops/internal/vault"
 
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
@@ -55,6 +58,23 @@ func launchTUI(dopsDir string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	// Vault: encrypted parameter storage.
+	vaultPath := filepath.Join(dopsDir, "vault.json")
+	keysDir := filepath.Join(dopsDir, "keys")
+	vlt := vault.New(vaultPath, keysDir)
+
+	// Migrate vars from config.json to vault.json (one-time).
+	if err := migrateVarsToVault(configPath, vlt, fs); err != nil {
+		return fmt.Errorf("vault migration: %w", err)
+	}
+
+	// Load vars from vault into config.
+	vars, err := vlt.Load()
+	if err != nil {
+		return fmt.Errorf("load vault: %w", err)
+	}
+	cfg.Vars = *vars
+
 	// Load theme
 	themeLoader := theme.NewFileLoader(fs, themesDir)
 	tf, err := themeLoader.Load(cfg.Theme)
@@ -94,6 +114,7 @@ func launchTUI(dopsDir string) error {
 		ProgramRef: progRef,
 		Version:    version,
 		DopsDir:    dopsDir,
+		Vault:      vlt,
 	})
 	p := tea.NewProgram(app)
 	progRef.P = p
@@ -137,4 +158,57 @@ func titleCase(s string) string {
 		return s
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// migrateVarsToVault moves saved parameter values from config.json to vault.json.
+// This is a one-time migration for users upgrading from v0.2.0 to v0.3.0.
+// If vault.json already exists or config.json has no vars, this is a no-op.
+func migrateVarsToVault(configPath string, vlt *vault.Vault, fs config.FileSystem) error {
+	if vlt.Exists() {
+		return nil
+	}
+
+	data, err := fs.ReadFile(configPath)
+	if err != nil {
+		return nil // no config.json → nothing to migrate
+	}
+
+	// Check if config.json contains a "vars" key.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil // malformed config → skip migration
+	}
+
+	varsRaw, ok := raw["vars"]
+	if !ok {
+		return nil // no vars in config
+	}
+
+	// Parse the vars.
+	var vars domain.Vars
+	if err := json.Unmarshal(varsRaw, &vars); err != nil {
+		return fmt.Errorf("parse vars from config.json: %w", err)
+	}
+
+	// Skip if vars are empty.
+	if len(vars.Global) == 0 && len(vars.Catalog) == 0 {
+		return nil
+	}
+
+	// Save vars to vault.
+	if err := vlt.Save(&vars); err != nil {
+		return fmt.Errorf("save vars to vault: %w", err)
+	}
+
+	// Remove vars from config.json and rewrite.
+	delete(raw, "vars")
+	cleaned, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return fmt.Errorf("rewrite config.json: %w", err)
+	}
+	if err := fs.WriteFile(configPath, cleaned, 0o644); err != nil {
+		return fmt.Errorf("write cleaned config.json: %w", err)
+	}
+
+	return nil
 }

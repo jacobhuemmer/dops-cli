@@ -60,12 +60,14 @@ parameters:
 
 ## Scopes
 
+Values are saved to the encrypted `vault.json` (age AEAD, tamper-resistant).
+
 | Scope | Where saved | Use when |
 |-------|------------|----------|
 | `local` | Not saved | One-time values, never prompted to save |
-| `global` | `vars.global.<name>` | Shared across all runbooks (API tokens, regions) |
-| `catalog` | `vars.catalog.<cat>.<name>` | Shared within a catalog |
-| `runbook` | `vars.catalog.<cat>.runbooks.<rb>.<name>` | Specific to this runbook |
+| `global` | `vault.json → vars.global.<name>` | Shared across all runbooks (API tokens, regions) |
+| `catalog` | `vault.json → vars.catalog.<cat>.<name>` | Shared within a catalog |
+| `runbook` | `vault.json → vars.catalog.<cat>.runbooks.<rb>.<name>` | Specific to this runbook |
 
 ## Script Template (POSIX sh)
 

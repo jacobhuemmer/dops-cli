@@ -67,9 +67,9 @@ parameters:
 | Scope | Saved to |
 |-------|----------|
 | local | Not saved — one-time value, never prompted to save |
-| global | config.json → vars.global.<name> |
-| catalog | config.json → vars.catalog.<catalog>.<name> |
-| runbook | config.json → vars.catalog.<catalog>.runbooks.<runbook>.<name> |
+| global | vault.json → vars.global.<name> |
+| catalog | vault.json → vars.catalog.<catalog>.<name> |
+| runbook | vault.json → vars.catalog.<catalog>.runbooks.<runbook>.<name> |
 `
 
 const shellStyleGuide = `# Shell Script Style Guide for dops Runbooks

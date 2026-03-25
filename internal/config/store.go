@@ -88,9 +88,5 @@ func defaultConfig() *domain.Config {
 		Theme:    "tokyomidnight",
 		Defaults: domain.Defaults{MaxRiskLevel: domain.RiskMedium},
 		Catalogs: []domain.Catalog{},
-		Vars: domain.Vars{
-			Global:  map[string]any{},
-			Catalog: map[string]domain.CatalogVars{},
-		},
 	}
 }

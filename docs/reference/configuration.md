@@ -15,9 +15,10 @@ dops stores its configuration in `~/.dops/config.json`. Override the base direct
 
 ```
 ~/.dops/
-├── config.json         # Main configuration
+├── config.json         # User-editable settings (theme, catalogs, defaults)
+├── vault.json          # Encrypted parameter store (0600, CLI-managed)
 ├── keys/               # Encryption keys (age)
-│   └── dops.key
+│   └── keys.txt
 ├── themes/             # Custom theme overrides
 │   └── mytheme.json
 └── catalogs/           # Runbook catalogs
@@ -29,14 +30,23 @@ dops stores its configuration in `~/.dops/config.json`. Override the base direct
 
 ## Config Keys
 
+Settings in `config.json` (user-editable):
+
 | Key | Type | Description |
 |-----|------|-------------|
 | `theme` | string | Active theme name (default: `tokyomidnight`) |
 | `defaults.max_risk_level` | string | Maximum risk level to load (`low`, `medium`, `high`, `critical`) |
 | `catalogs` | array | List of catalog entries with `name`, `path`, `active` |
-| `vars.global.<name>` | string | Global saved parameter values |
-| `vars.catalog.<cat>.<name>` | string | Catalog-scoped saved values |
-| `vars.catalog.<cat>.runbooks.<rb>.<name>` | string | Runbook-scoped saved values |
+
+Saved parameter values in `vault.json` (encrypted, CLI-managed):
+
+| Key Path | Scope | Description |
+|----------|-------|-------------|
+| `vars.global.<name>` | global | Shared across all runbooks |
+| `vars.catalog.<cat>.<name>` | catalog | Shared within a catalog |
+| `vars.catalog.<cat>.runbooks.<rb>.<name>` | runbook | Specific to one runbook |
+
+Use `dops config set/get/unset` to manage both — the CLI routes `vars.*` paths to the vault automatically.
 
 ---
 
@@ -106,11 +116,39 @@ dops config set theme=my-theme
 
 ---
 
-## Encryption
+## Vault Encryption
 
-Secret parameters are encrypted at rest using [age](https://age-encryption.org/) (X25519). The key is auto-generated at `~/.dops/keys/dops.key` on first use.
+All saved parameter values are stored in `vault.json`, encrypted as a single [age](https://age-encryption.org/) blob.
 
-Encrypted values in `config.json` are prefixed with `age1-`. They are automatically decrypted when passed to scripts and masked with `****` in all display contexts (TUI, MCP, `config list`).
+### Algorithm
+
+- **Key exchange**: X25519
+- **AEAD**: ChaCha20-Poly1305 (provided by age internally)
+- **Identity**: auto-generated at `~/.dops/keys/keys.txt` on first use
+
+### Tamper Detection
+
+The vault uses age's authenticated encryption (AEAD). The Poly1305 authentication tag covers the entire ciphertext — any modification, even a single bit flip, causes decryption to fail. Unlike tools like [sops](https://github.com/getsops/sops) that need a separate HMAC because they encrypt values individually, the dops vault encrypts everything as one blob, so AEAD covers the entire payload inherently.
+
+If `vault.json` is modified outside dops:
+
+```
+vault.json is corrupted or was modified outside dops
+```
+
+Recovery: delete `vault.json` and re-enter saved values.
+
+### Design
+
+- Values inside the vault are stored as **plaintext** — no per-value encryption
+- The entire file is opaque to anyone without the key
+- `vault.json`: `0600` (owner read/write only)
+- `keys/keys.txt`: `0600` (owner read/write only)
+- Atomic writes (temp file + rename) prevent corruption during save
+
+### Migration
+
+Users upgrading from v0.2.0 get automatic one-time migration on first startup. Vars are moved from `config.json` to the encrypted `vault.json`, and the `vars` key is removed from `config.json`. No user action required.
 
 ---
 

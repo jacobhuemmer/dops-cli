@@ -6,7 +6,7 @@ type Config struct {
 	Theme    string    `json:"theme"`
 	Defaults Defaults  `json:"defaults"`
 	Catalogs []Catalog `json:"catalogs"`
-	Vars     Vars      `json:"vars"`
+	Vars     Vars      `json:"-"`
 }
 
 type Defaults struct {

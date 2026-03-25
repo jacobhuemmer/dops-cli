@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"dops/internal/config"
-	"dops/internal/crypto"
 	"dops/internal/domain"
 	"dops/internal/theme"
+	"dops/internal/vault"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -47,9 +47,8 @@ type Model struct {
 	prefill  map[string]bool     // tracks which fields had saved values
 	width    int
 	styles   *theme.Styles
-	store    config.ConfigStore  // for saving values
 	cfg      *domain.Config      // config to save into
-	keysDir  string              // path to age keys for secret encryption
+	vault    *vault.Vault        // encrypted parameter storage
 }
 
 func New(rb domain.Runbook, cat domain.Catalog, resolved map[string]string) Model {
@@ -81,11 +80,10 @@ func (m *Model) SetStyles(s *theme.Styles) {
 }
 
 // SetStore provides config persistence for the "Save for future runs?" feature.
-// keysDir is the path to age encryption keys (e.g. ~/.dops/keys) for encrypting secrets.
-func (m *Model) SetStore(store config.ConfigStore, cfg *domain.Config, keysDir string) {
-	m.store = store
+// Values are saved to the encrypted vault.
+func (m *Model) SetStore(cfg *domain.Config, vlt *vault.Vault) {
 	m.cfg = cfg
-	m.keysDir = keysDir
+	m.vault = vlt
 }
 
 func (m *Model) initField(idx int) {
@@ -413,12 +411,13 @@ func (m Model) advanceOrSave() (Model, tea.Cmd) {
 }
 
 func (m *Model) saveCurrentField() {
-	if m.store == nil || m.cfg == nil {
+	if m.vault == nil || m.cfg == nil {
 		return
 	}
 	p := m.params[m.current]
 	val := m.values[p.Name]
 
+	// Set the value in the in-memory config (vault stores plaintext — no per-value encryption).
 	var keyPath string
 	switch p.Scope {
 	case "global":
@@ -431,27 +430,11 @@ func (m *Model) saveCurrentField() {
 		keyPath = fmt.Sprintf("vars.global.%s", p.Name)
 	}
 
-	// Encrypt secret parameters before saving to config.
-	var finalValue any = val
-	if p.Secret && m.keysDir != "" {
-		enc, err := crypto.NewAgeEncrypter(m.keysDir)
-		if err != nil {
-			m.err = fmt.Sprintf("init encryption: %v", err)
-			return
-		}
-		encrypted, err := enc.Encrypt(val)
-		if err != nil {
-			m.err = fmt.Sprintf("encrypt %s: %v", p.Name, err)
-			return
-		}
-		finalValue = encrypted
-	}
-
-	if err := config.Set(m.cfg, keyPath, finalValue); err != nil {
+	if err := config.Set(m.cfg, keyPath, val); err != nil {
 		m.err = fmt.Sprintf("save failed: %v", err)
 		return
 	}
-	if err := m.store.Save(m.cfg); err != nil {
+	if err := m.vault.Save(&m.cfg.Vars); err != nil {
 		m.err = fmt.Sprintf("save failed: %v", err)
 	}
 }

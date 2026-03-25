@@ -45,9 +45,6 @@ func TestFileConfigStore_RoundTrip(t *testing.T) {
 	original := &domain.Config{
 		Theme:    "tokyomidnight",
 		Defaults: domain.Defaults{MaxRiskLevel: domain.RiskMedium},
-		Vars: domain.Vars{
-			Global: map[string]any{"region": "us-east-1"},
-		},
 	}
 
 	if err := store.Save(original); err != nil {
@@ -65,8 +62,14 @@ func TestFileConfigStore_RoundTrip(t *testing.T) {
 	if loaded.Defaults.MaxRiskLevel != original.Defaults.MaxRiskLevel {
 		t.Errorf("MaxRiskLevel = %q, want %q", loaded.Defaults.MaxRiskLevel, original.Defaults.MaxRiskLevel)
 	}
-	if loaded.Vars.Global["region"] != "us-east-1" {
-		t.Errorf("region = %v, want us-east-1", loaded.Vars.Global["region"])
+	// Vars are stored in vault.json, not config.json — verify they're excluded.
+	data := ffs.files["/fake/.dops/config.json"]
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal raw: %v", err)
+	}
+	if _, ok := raw["vars"]; ok {
+		t.Error("config.json should not contain vars (stored in vault.json)")
 	}
 }
 

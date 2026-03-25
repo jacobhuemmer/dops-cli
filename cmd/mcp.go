@@ -14,6 +14,7 @@ import (
 	"dops/internal/domain"
 	"dops/internal/executor"
 	mcppkg "dops/internal/mcp"
+	"dops/internal/vault"
 
 	"github.com/spf13/cobra"
 )
@@ -108,6 +109,7 @@ func newMCPToolsCmd(dopsDir string) *cobra.Command {
 
 func loadMCPDeps(dopsDir string, maxRisk domain.RiskLevel) (*domain.Config, []catpkg.CatalogWithRunbooks, error) {
 	configPath := filepath.Join(dopsDir, "config.json")
+	keysDir := filepath.Join(dopsDir, "keys")
 	fs := adapters.NewOSFileSystem()
 	store := config.NewFileStore(fs, configPath)
 
@@ -115,6 +117,15 @@ func loadMCPDeps(dopsDir string, maxRisk domain.RiskLevel) (*domain.Config, []ca
 	if err != nil {
 		return nil, nil, fmt.Errorf("load config: %w", err)
 	}
+
+	// Load vars from vault.
+	vaultPath := filepath.Join(dopsDir, "vault.json")
+	vlt := vault.New(vaultPath, keysDir)
+	vars, err := vlt.Load()
+	if err != nil {
+		return nil, nil, fmt.Errorf("load vault: %w", err)
+	}
+	cfg.Vars = *vars
 
 	loader := catpkg.NewDiskLoader(fs)
 	catalogs, err := loader.LoadAll(cfg.Catalogs, cfg.Defaults.MaxRiskLevel)

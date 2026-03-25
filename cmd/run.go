@@ -11,16 +11,15 @@ import (
 	"dops/internal/adapters"
 	"dops/internal/catalog"
 	"dops/internal/config"
-	"dops/internal/crypto"
 	"dops/internal/domain"
 	"dops/internal/vars"
+	"dops/internal/vault"
 
 	"github.com/spf13/cobra"
 )
 
 func newRunCmd(dopsDir string) *cobra.Command {
 	var params []string
-	var secrets []string
 	var dryRun bool
 	var noSave bool
 
@@ -44,6 +43,15 @@ func newRunCmd(dopsDir string) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("load config: %w", err)
 			}
+
+			// Load vars from vault.
+			vaultPath := filepath.Join(dopsDir, "vault.json")
+			vlt := vault.New(vaultPath, keysDir)
+			vaultVars, err := vlt.Load()
+			if err != nil {
+				return fmt.Errorf("load vault: %w", err)
+			}
+			cfg.Vars = *vaultVars
 
 			loader := catalog.NewDiskLoader(fs)
 			_, err = loader.LoadAll(cfg.Catalogs, cfg.Defaults.MaxRiskLevel)
@@ -70,11 +78,6 @@ func newRunCmd(dopsDir string) *cobra.Command {
 			resolved := resolver.Resolve(cfg, cat.Name, rb.Name, rb.Parameters)
 
 			// Apply --param overrides
-			secretSet := make(map[string]bool)
-			for _, s := range secrets {
-				secretSet[s] = true
-			}
-
 			for _, p := range params {
 				parts := strings.SplitN(p, "=", 2)
 				if len(parts) != 2 {
@@ -89,7 +92,7 @@ func newRunCmd(dopsDir string) *cobra.Command {
 
 			// Save inputs to config (unless --no-save)
 			if !noSave {
-				if err := saveInputs(cfg, store, keysDir, rb, cat.Name, resolved, secretSet); err != nil {
+				if err := saveInputs(cfg, vlt, rb, cat.Name, resolved); err != nil {
 					return fmt.Errorf("save inputs: %w", err)
 				}
 			}
@@ -105,9 +108,8 @@ func newRunCmd(dopsDir string) *cobra.Command {
 	}
 
 	cmd.Flags().StringArrayVar(&params, "param", nil, "Parameter override (key=value, repeatable)")
-	cmd.Flags().StringArrayVar(&secrets, "secret", nil, "Mark a parameter as secret (repeatable)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show resolved command without executing")
-	cmd.Flags().BoolVar(&noSave, "no-save", false, "Execute without saving inputs to config")
+	cmd.Flags().BoolVar(&noSave, "no-save", false, "Execute without saving inputs to vault")
 
 	return cmd
 }
@@ -128,29 +130,18 @@ func printDryRun(cmd *cobra.Command, rb *domain.Runbook, resolved map[string]str
 	return nil
 }
 
-func saveInputs(cfg *domain.Config, store *config.FileConfigStore, keysDir string, rb *domain.Runbook, catName string, resolved map[string]string, secretSet map[string]bool) error {
-	var enc *crypto.AgeEncrypter
-
+// saveInputs persists resolved parameter values to the encrypted vault.
+// Values are stored as plaintext inside the vault's encrypted blob.
+func saveInputs(cfg *domain.Config, vlt *vault.Vault, rb *domain.Runbook, catName string, resolved map[string]string) error {
 	for _, p := range rb.Parameters {
 		val, ok := resolved[p.Name]
 		if !ok {
 			continue
 		}
 
-		var finalValue any = val
-		if p.Secret || secretSet[p.Name] {
-			if enc == nil {
-				var err error
-				enc, err = crypto.NewAgeEncrypter(keysDir)
-				if err != nil {
-					return err
-				}
-			}
-			encrypted, err := enc.Encrypt(val)
-			if err != nil {
-				return fmt.Errorf("encrypt %s: %w", p.Name, err)
-			}
-			finalValue = encrypted
+		// Skip local/unscoped params — they aren't persisted.
+		if p.Scope == "" || p.Scope == "local" {
+			continue
 		}
 
 		var keyPath string
@@ -165,12 +156,12 @@ func saveInputs(cfg *domain.Config, store *config.FileConfigStore, keysDir strin
 			keyPath = fmt.Sprintf("vars.global.%s", p.Name)
 		}
 
-		if err := config.Set(cfg, keyPath, finalValue); err != nil {
+		if err := config.Set(cfg, keyPath, val); err != nil {
 			return err
 		}
 	}
 
-	return store.Save(cfg)
+	return vlt.Save(&cfg.Vars)
 }
 
 func executeScript(cmd *cobra.Command, scriptPath string, env map[string]string, catName, rbName string) error {
