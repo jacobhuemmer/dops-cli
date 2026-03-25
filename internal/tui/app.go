@@ -11,6 +11,7 @@ import (
 	"dops/internal/adapters"
 	"dops/internal/catalog"
 	"dops/internal/config"
+	"dops/internal/crypto"
 	"dops/internal/domain"
 	"dops/internal/executor"
 	"dops/internal/theme"
@@ -630,7 +631,8 @@ func (m App) openWizard() (tea.Model, tea.Cmd) {
 	wiz := wizard.New(*m.selected, *m.selCat, resolved)
 	wiz.SetStyles(m.deps.Styles)
 	if m.deps.Store != nil && m.deps.Config != nil {
-		wiz.SetStore(m.deps.Store, m.deps.Config)
+		keysDir := filepath.Join(m.deps.DopsDir, "keys")
+		wiz.SetStore(m.deps.Store, m.deps.Config, keysDir)
 	}
 	m.wizard = &wiz
 	m.state = stateWizard
@@ -652,8 +654,19 @@ func (m App) resolveVars() map[string]string {
 	if m.deps.Config == nil || m.selected == nil || m.selCat == nil {
 		return make(map[string]string)
 	}
-	resolver := vars.NewDefaultResolver()
-	return resolver.Resolve(m.deps.Config, m.selCat.Name, m.selected.Name, m.selected.Parameters)
+	base := vars.NewDefaultResolver()
+
+	// Use decrypting resolver so encrypted secrets display as plaintext in the wizard.
+	if m.deps.DopsDir != "" {
+		keysDir := filepath.Join(m.deps.DopsDir, "keys")
+		enc, err := crypto.NewAgeEncrypter(keysDir)
+		if err == nil {
+			resolver := vars.NewDecryptingResolver(base, enc)
+			return resolver.Resolve(m.deps.Config, m.selCat.Name, m.selected.Name, m.selected.Parameters)
+		}
+	}
+
+	return base.Resolve(m.deps.Config, m.selCat.Name, m.selected.Name, m.selected.Parameters)
 }
 
 func (m App) View() tea.View {

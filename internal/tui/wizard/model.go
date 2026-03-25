@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"dops/internal/config"
+	"dops/internal/crypto"
 	"dops/internal/domain"
 	"dops/internal/theme"
 
@@ -48,6 +49,7 @@ type Model struct {
 	styles   *theme.Styles
 	store    config.ConfigStore  // for saving values
 	cfg      *domain.Config      // config to save into
+	keysDir  string              // path to age keys for secret encryption
 }
 
 func New(rb domain.Runbook, cat domain.Catalog, resolved map[string]string) Model {
@@ -79,9 +81,11 @@ func (m *Model) SetStyles(s *theme.Styles) {
 }
 
 // SetStore provides config persistence for the "Save for future runs?" feature.
-func (m *Model) SetStore(store config.ConfigStore, cfg *domain.Config) {
+// keysDir is the path to age encryption keys (e.g. ~/.dops/keys) for encrypting secrets.
+func (m *Model) SetStore(store config.ConfigStore, cfg *domain.Config, keysDir string) {
 	m.store = store
 	m.cfg = cfg
+	m.keysDir = keysDir
 }
 
 func (m *Model) initField(idx int) {
@@ -422,7 +426,23 @@ func (m *Model) saveCurrentField() {
 		keyPath = fmt.Sprintf("vars.global.%s", p.Name)
 	}
 
-	if err := config.Set(m.cfg, keyPath, val); err != nil {
+	// Encrypt secret parameters before saving to config.
+	var finalValue any = val
+	if p.Secret && m.keysDir != "" {
+		enc, err := crypto.NewAgeEncrypter(m.keysDir)
+		if err != nil {
+			m.err = fmt.Sprintf("init encryption: %v", err)
+			return
+		}
+		encrypted, err := enc.Encrypt(val)
+		if err != nil {
+			m.err = fmt.Sprintf("encrypt %s: %v", p.Name, err)
+			return
+		}
+		finalValue = encrypted
+	}
+
+	if err := config.Set(m.cfg, keyPath, finalValue); err != nil {
 		m.err = fmt.Sprintf("save failed: %v", err)
 		return
 	}
