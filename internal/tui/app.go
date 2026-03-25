@@ -106,7 +106,9 @@ func (m App) computeLayout() layoutDims {
 		Width(sw).
 		Height(sidebarContentH).
 		Render("")
-	sidebarRenderedH := sidebarContentH + borderSize
+	// Measure actual rendered height — don't estimate, since lipgloss
+	// Height() behavior with borders can vary.
+	sidebarRenderedH := lipgloss.Height(sidebarView)
 	sidebarRenderedW := lipgloss.Width(sidebarView)
 
 	metaContent := metadata.Render(m.selected, m.selCat, contentW, m.copiedFlash, m.deps.Styles)
@@ -697,6 +699,14 @@ func (m App) viewNormal() tea.View {
 	}
 
 	// --- Output ---
+	// Derive output height from actual rendered sidebar and metadata heights.
+	// lipgloss Height() pads but does NOT clip, so the sidebar may render
+	// taller than Height(N) if content overflows. We must measure, not estimate.
+	actualSidebarH := lipgloss.Height(sidebarView)
+	actualMetaH := lipgloss.Height(metaView)
+	outputTotalH := clamp(actualSidebarH-actualMetaH, 3)
+	outputContentH := clamp(outputTotalH-l.borderSize, 1)
+
 	outputBorderColor := borderColor
 	if m.focus == focusOutput {
 		outputBorderColor = activeBorderColor
@@ -706,8 +716,8 @@ func (m App) viewNormal() tea.View {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(outputBorderColor).
 		Width(l.contentW).
-		Height(l.outputTotalH).
-		Render(m.output.ViewWithSize(l.outputInnerW, l.outputContentH))
+		Height(outputTotalH).
+		Render(m.output.ViewWithSize(l.outputInnerW, outputContentH))
 	if m.output.CopyFlash() {
 		outputView = injectBorderBadge(outputView, "Copied to Clipboard!", m.deps.Styles)
 	}
