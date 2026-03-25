@@ -190,24 +190,24 @@ docker run -p 8080:8080 -v ~/.dops:/data/dops ghcr.io/jacobhuemmer/dops-cli:late
 
 ## Themes
 
-dops uses a JSON-based theme system. Built-in themes: `tokyonight`, `tokyomidnight`.
+dops ships with 6 bundled themes. Default: `tokyomidnight`.
 
-Custom themes go in `~/.dops/themes/`:
+| Theme | Style |
+|-------|-------|
+| `tokyonight` | Dark — cool blue accents |
+| `tokyomidnight` | Dark — deeper background (default) |
+| `catppuccin-mocha` | Dark — warm pastels |
+| `catppuccin-latte` | Light — warm pastels |
+| `nord` | Dark — muted blue-gray |
+| `rosepine-dawn` | Light — soft lavender |
 
-```json
-{
-  "defs": {
-    "bg": "#1a1b26",
-    "fg": "#c0caf5",
-    "blue": "#7aa2f7"
-  },
-  "theme": {
-    "background": "bg",
-    "text": "fg",
-    "primary": "blue"
-  }
-}
+Each theme includes dark and light variants. dops auto-detects your terminal background and selects the appropriate variant.
+
+```sh
+dops config set theme=catppuccin-mocha
 ```
+
+Custom themes go in `~/.dops/themes/<name>.json`. See the [configuration reference](https://jacobhuemmer.github.io/dops-cli/reference/configuration) for the full schema.
 
 ## Shell Completion
 

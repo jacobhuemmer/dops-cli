@@ -62,7 +62,7 @@ Each catalog is a subdirectory under `catalogs/`. Each runbook is a subdirectory
 
 ```json
 {
-  "theme": "tokyonight",
+  "theme": "tokyomidnight",
   "defaults": {
     "max_risk_level": "medium"
   },

@@ -45,6 +45,9 @@ func Set(cfg *domain.Config, keyPath string, value any) error {
 		if !ok {
 			return fmt.Errorf("theme must be a string")
 		}
+		if strings.ContainsAny(s, " \t") {
+			return fmt.Errorf("theme name must be a lowercase ID (no spaces), e.g. catppuccin-mocha")
+		}
 		cfg.Theme = s
 		return nil
 	case "defaults":

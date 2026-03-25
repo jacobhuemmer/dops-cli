@@ -37,6 +37,7 @@ Runbooks are simple YAML + shell scripts organized in catalogs. No proprietary D
 - Output pane with live streaming, scrollback, text selection
 - Field-by-field wizard with parameter validation and persistence
 - Risk confirmation gates (high = y/N, critical = type runbook ID)
+- 6 bundled themes: Tokyo Night, Catppuccin, Nord, Rose Pine + custom themes
 
 ### MCP Server
 - Expose runbooks as tools for AI agents via Model Context Protocol

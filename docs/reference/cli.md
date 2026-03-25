@@ -66,8 +66,8 @@ Read and write configuration.
 | `config list` | Display the full configuration (secrets masked) |
 
 ```sh
-# Set theme
-dops config set theme=tokyonight
+# Set theme (available: tokyonight, tokyomidnight, catppuccin-mocha, catppuccin-latte, nord, rosepine-dawn)
+dops config set theme=catppuccin-mocha
 
 # Save a global parameter
 dops config set vars.global.region=us-east-1
