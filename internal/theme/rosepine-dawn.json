@@ -1,0 +1,49 @@
+{
+  "$schema": "https://dops.sh/theme.json",
+  "name": "rosepine-dawn",
+  "defs": {
+    "base":     "#faf4ed",
+    "surface":  "#fffaf3",
+    "overlay":  "#f2e9e1",
+    "muted":    "#9893a5",
+    "subtle":   "#797593",
+    "text":     "#575279",
+    "iris":     "#907aa9",
+    "foam":     "#56949f",
+    "pine":     "#286983",
+    "gold":     "#ea9d34",
+    "rose":     "#d7827e",
+    "love":     "#b4637a",
+    "moonBg":       "#232136",
+    "moonSurface":  "#2a273f",
+    "moonOverlay":  "#393552",
+    "moonMuted":    "#6e6a86",
+    "moonSubtle":   "#908caa",
+    "moonText":     "#e0def4",
+    "moonIris":     "#c4a7e7",
+    "moonFoam":     "#9ccfd8",
+    "moonPine":     "#3e8fb0",
+    "moonGold":     "#f6c177",
+    "moonRose":     "#ea9a97",
+    "moonLove":     "#eb6f92"
+  },
+  "theme": {
+    "background":        { "dark": "moonBg",      "light": "base"    },
+    "backgroundPanel":   { "dark": "moonSurface",  "light": "surface" },
+    "backgroundElement": { "dark": "moonOverlay",  "light": "overlay" },
+    "text":              { "dark": "moonText",     "light": "text"    },
+    "textMuted":         { "dark": "moonMuted",    "light": "muted"   },
+    "primary":           { "dark": "moonIris",     "light": "iris"    },
+    "border":            { "dark": "moonMuted",    "light": "muted"   },
+    "borderActive":      { "dark": "moonIris",     "light": "iris"    },
+    "success":           { "dark": "moonFoam",     "light": "foam"    },
+    "warning":           { "dark": "moonGold",     "light": "gold"    },
+    "error":             { "dark": "moonLove",     "light": "love"    },
+    "risk": {
+      "low":      { "dark": "moonFoam", "light": "foam" },
+      "medium":   { "dark": "moonGold", "light": "gold" },
+      "high":     { "dark": "moonRose", "light": "rose" },
+      "critical": { "dark": "moonLove", "light": "love" }
+    }
+  }
+}

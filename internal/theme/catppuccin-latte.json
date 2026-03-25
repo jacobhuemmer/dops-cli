@@ -1,0 +1,51 @@
+{
+  "$schema": "https://dops.sh/theme.json",
+  "name": "catppuccin-latte",
+  "defs": {
+    "base":      "#eff1f5",
+    "mantle":    "#e6e9ef",
+    "surface0":  "#ccd0da",
+    "surface1":  "#bcc0cc",
+    "surface2":  "#acb0be",
+    "overlay0":  "#9ca0b0",
+    "text":      "#4c4f69",
+    "subtext0":  "#6c6f85",
+    "subtext1":  "#5c5f77",
+    "blue":      "#1e66f5",
+    "green":     "#40a02b",
+    "yellow":    "#df8e1d",
+    "peach":     "#fe640b",
+    "red":       "#d20f39",
+    "maroon":    "#e64553",
+    "mochaBg":      "#1e1e2e",
+    "mochaMantle":  "#181825",
+    "mochaSurface": "#45475a",
+    "mochaText":    "#cdd6f4",
+    "mochaSubtext": "#6c7086",
+    "mochaBlue":    "#89b4fa",
+    "mochaGreen":   "#a6e3a1",
+    "mochaPeach":   "#fab387",
+    "mochaRed":     "#f38ba8",
+    "mochaYellow":  "#f9e2af",
+    "mochaMaroon":  "#eba0ac"
+  },
+  "theme": {
+    "background":        { "dark": "mochaBg",      "light": "base"     },
+    "backgroundPanel":   { "dark": "mochaMantle",   "light": "mantle"   },
+    "backgroundElement": { "dark": "mochaSurface",  "light": "surface1" },
+    "text":              { "dark": "mochaText",     "light": "text"     },
+    "textMuted":         { "dark": "mochaSubtext",  "light": "overlay0" },
+    "primary":           { "dark": "mochaBlue",     "light": "blue"     },
+    "border":            { "dark": "mochaSubtext",  "light": "surface2" },
+    "borderActive":      { "dark": "mochaBlue",     "light": "blue"     },
+    "success":           { "dark": "mochaGreen",    "light": "green"    },
+    "warning":           { "dark": "mochaPeach",    "light": "peach"    },
+    "error":             { "dark": "mochaRed",      "light": "red"      },
+    "risk": {
+      "low":      { "dark": "mochaGreen",   "light": "green"   },
+      "medium":   { "dark": "mochaYellow",  "light": "yellow"  },
+      "high":     { "dark": "mochaPeach",   "light": "peach"   },
+      "critical": { "dark": "mochaMaroon",  "light": "maroon"  }
+    }
+  }
+}

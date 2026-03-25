@@ -15,6 +15,18 @@ var bundledTokyonight []byte
 //go:embed tokyomidnight.json
 var bundledTokyomidnight []byte
 
+//go:embed catppuccin-mocha.json
+var bundledCatppuccinMocha []byte
+
+//go:embed catppuccin-latte.json
+var bundledCatppuccinLatte []byte
+
+//go:embed nord.json
+var bundledNord []byte
+
+//go:embed rosepine-dawn.json
+var bundledRosepineDawn []byte
+
 type ThemeLoader interface {
 	Load(name string) (*domain.ThemeFile, error)
 }
@@ -60,6 +72,14 @@ func (l *FileThemeLoader) loadBundled(name string) (*domain.ThemeFile, error) {
 		return parseTheme(bundledTokyonight)
 	case "tokyomidnight":
 		return parseTheme(bundledTokyomidnight)
+	case "catppuccin-mocha":
+		return parseTheme(bundledCatppuccinMocha)
+	case "catppuccin-latte":
+		return parseTheme(bundledCatppuccinLatte)
+	case "nord":
+		return parseTheme(bundledNord)
+	case "rosepine-dawn":
+		return parseTheme(bundledRosepineDawn)
 	default:
 		return nil, fmt.Errorf("no bundled theme %q", name)
 	}
