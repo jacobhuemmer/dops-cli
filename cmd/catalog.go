@@ -150,7 +150,7 @@ func newCatalogInstallCmd(dopsDir string) *cobra.Command {
 			}
 
 			catalogsDir := filepath.Join(dopsDir, "catalogs")
-			if err := os.MkdirAll(catalogsDir, 0o755); err != nil {
+			if err := os.MkdirAll(catalogsDir, 0o750); err != nil {
 				return fmt.Errorf("create catalogs dir: %w", err)
 			}
 

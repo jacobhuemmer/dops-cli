@@ -61,7 +61,7 @@ func (w *LogWriter) Close() {
 		w.writer = nil
 	}
 	if w.file != nil {
-		w.file.Close()
+		_ = w.file.Close() // best-effort cleanup
 		w.file = nil
 	}
 }

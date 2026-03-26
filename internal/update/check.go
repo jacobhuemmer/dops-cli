@@ -113,8 +113,8 @@ func writeCache(path, latest string) {
 	if err != nil {
 		return
 	}
-	_ = os.MkdirAll(filepath.Dir(path), 0o755)
-	_ = os.WriteFile(path, data, 0o644)
+	_ = os.MkdirAll(filepath.Dir(path), 0o750)
+	_ = os.WriteFile(path, data, 0o600)
 }
 
 // fetchLatest hits the GitHub Releases API and returns the latest version tag.

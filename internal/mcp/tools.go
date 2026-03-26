@@ -76,7 +76,7 @@ func HandleToolCall(
 	var allLines []string
 	for line := range lines {
 		allLines = append(allLines, line.Text)
-		pw.Write([]byte(line.Text + "\n"))
+		_, _ = pw.Write([]byte(line.Text + "\n")) // error not actionable in streaming loop
 		lw.WriteLine(line.Text)
 	}
 	pw.Flush()

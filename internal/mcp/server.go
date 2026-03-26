@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	catpkg "dops/internal/catalog"
 	"dops/internal/domain"
@@ -226,11 +227,11 @@ func (s *Server) ServeHTTP(ctx context.Context, addr string) error {
 		return s.srv
 	}, nil)
 	wrapped := gzipMiddleware(handler)
-	server := &http.Server{Addr: addr, Handler: wrapped}
+	server := &http.Server{Addr: addr, Handler: wrapped, ReadHeaderTimeout: 60 * time.Second}
 
 	go func() {
 		<-ctx.Done()
-		server.Close()
+		_ = server.Close() // best-effort shutdown on context cancellation
 	}()
 
 	return server.ListenAndServe()

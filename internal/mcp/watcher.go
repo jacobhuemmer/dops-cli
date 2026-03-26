@@ -40,7 +40,7 @@ func NewWatcher(dirs []string, debounce time.Duration, callback WatcherCallback)
 
 	for _, dir := range dirs {
 		if err := w.addRecursive(dir); err != nil {
-			fw.Close()
+			_ = fw.Close() // best-effort cleanup on init failure
 			return nil, err
 		}
 	}

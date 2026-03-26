@@ -103,7 +103,7 @@ func (v *Vault) Save(vars *domain.Vars) error {
 
 	// Atomic write: write to temp file, then rename.
 	dir := filepath.Dir(v.path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("create vault dir: %w", err)
 	}
 
@@ -114,22 +114,22 @@ func (v *Vault) Save(vars *domain.Vars) error {
 	tmpPath := tmp.Name()
 
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()          // best-effort cleanup
+		_ = os.Remove(tmpPath)   // best-effort cleanup
 		return fmt.Errorf("write vault temp file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) // best-effort cleanup
 		return fmt.Errorf("close vault temp file: %w", err)
 	}
 
 	if err := os.Chmod(tmpPath, 0o600); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) // best-effort cleanup
 		return fmt.Errorf("set vault permissions: %w", err)
 	}
 
 	if err := os.Rename(tmpPath, v.path); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) // best-effort cleanup
 		return fmt.Errorf("rename vault: %w", err)
 	}
 

@@ -73,8 +73,8 @@ func (r *ScriptRunner) Run(ctx context.Context, scriptPath string, env map[strin
 
 	go func() {
 		err := cmd.Wait()
-		stdoutW.Close()
-		stderrW.Close()
+		_ = stdoutW.Close() // signal EOF to scanner goroutine
+		_ = stderrW.Close() // signal EOF to scanner goroutine
 		wg.Wait()
 		close(lines)
 		errs <- err
