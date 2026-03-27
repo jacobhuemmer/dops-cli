@@ -270,20 +270,20 @@ func newCatalogUpdateCmd(dopsDir string) *cobra.Command {
 				if !isValidGitRef(ref) {
 					return fmt.Errorf("invalid git ref %q", ref)
 				}
-				fetchCmd := exec.Command("git", "-C", catPath, "fetch", "--all")
+				fetchCmd := exec.Command("git", "-C", catPath, "fetch", "--all") // #nosec G204 -- catPath resolved via EvalSymlinks
 				fetchCmd.Stdout = os.Stdout
 				fetchCmd.Stderr = os.Stderr
 				if err := fetchCmd.Run(); err != nil {
 					return fmt.Errorf("git fetch failed: %w", err)
 				}
-				checkoutCmd := exec.Command("git", "-C", catPath, "checkout", ref)
+				checkoutCmd := exec.Command("git", "-C", catPath, "checkout", ref) // #nosec G204 -- ref validated by isValidGitRef
 				checkoutCmd.Stdout = os.Stdout
 				checkoutCmd.Stderr = os.Stderr
 				if err := checkoutCmd.Run(); err != nil {
 					return fmt.Errorf("git checkout %q failed: %w", ref, err)
 				}
 			} else {
-				gitCmd := exec.Command("git", "-C", catPath, "pull")
+				gitCmd := exec.Command("git", "-C", catPath, "pull") // #nosec G204 -- catPath resolved via EvalSymlinks
 				gitCmd.Stdout = os.Stdout
 				gitCmd.Stderr = os.Stderr
 				if err := gitCmd.Run(); err != nil {
