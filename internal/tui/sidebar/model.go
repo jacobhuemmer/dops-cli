@@ -364,7 +364,6 @@ func (m Model) View() string {
 	}
 
 	// Scrolling
-	totalLines := len(lines)
 	visibleLines := m.height - filterHeight
 	if visibleLines <= 0 {
 		visibleLines = 1
@@ -380,24 +379,9 @@ func (m Model) View() string {
 	}
 	visible := lines[start:end]
 
-	needsScrollbar := totalLines > visibleLines
-
-	thumbStyle := lipgloss.NewStyle()
-	if m.styles != nil {
-		thumbStyle = m.styles.TextMuted
-	}
-
 	var b strings.Builder
-	for i, line := range visible {
-		if needsScrollbar {
-			if isScrollThumb(i+start, totalLines, visibleLines) {
-				b.WriteString(line + " " + thumbStyle.Render("▐") + "\n")
-			} else {
-				b.WriteString(line + "  \n")
-			}
-		} else {
-			b.WriteString(line + "\n")
-		}
+	for _, line := range visible {
+		b.WriteString(line + "\n")
 	}
 
 	// Pad remaining lines to push filter to bottom
@@ -524,13 +508,6 @@ func (m *Model) ensureVisible() {
 	if m.cursor >= m.offset+m.height {
 		m.offset = m.cursor - m.height + 1
 	}
-}
-
-func isScrollThumb(lineIdx, total, visible int) bool {
-	thumbSize := max(1, visible*visible/total)
-	thumbStart := lineIdx * visible / total
-	pos := lineIdx - thumbStart
-	return pos >= 0 && pos < thumbSize
 }
 
 func (m Model) Selected() *domain.Runbook {
