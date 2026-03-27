@@ -174,10 +174,17 @@ func newCatalogInstallCmd(dopsDir string) *cobra.Command {
 
 			// Validate sub-path exists if specified.
 			if subPath != "" {
+				// Sanitize: resolve to a clean relative path and reject traversal.
+				cleaned := filepath.Clean(subPath)
+				if filepath.IsAbs(cleaned) || strings.HasPrefix(cleaned, "..") {
+					_ = os.RemoveAll(targetDir)
+					return fmt.Errorf("sub-path %q must be a relative path within the repository", subPath)
+				}
+				subPath = cleaned
+
 				sp := filepath.Join(targetDir, subPath)
 				info, err := os.Stat(sp)
 				if err != nil || !info.IsDir() {
-					// Clean up the clone on failure.
 					_ = os.RemoveAll(targetDir)
 					return fmt.Errorf("sub-path %q does not exist in repository", subPath)
 				}
