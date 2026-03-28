@@ -1,0 +1,46 @@
+{
+  "$schema": "https://dops.sh/theme.json",
+  "name": "unicorn",
+  "defs": {
+    "bg":        "#1f1526",
+    "bgDark":    "#19101f",
+    "bgElem":    "#2e2038",
+    "fg":        "#e8daf0",
+    "fgMuted":   "#7a6888",
+    "pink":      "#f472b6",
+    "magenta":   "#e879f9",
+    "lavender":  "#c4b5fd",
+    "mint":      "#6ee7b7",
+    "peach":     "#fbbf76",
+    "coral":     "#fb7185",
+    "coralDark": "#e0435e",
+    "dayBg":     "#fdf2f8",
+    "dayBgPanel":"#fce7f3",
+    "dayBgElem": "#f5d0e6",
+    "dayFg":     "#4a1942",
+    "dayFgMuted":"#9a7aa8",
+    "dayPink":   "#db2777",
+    "dayMint":   "#059669",
+    "dayPeach":  "#c2590a",
+    "dayCoral":  "#e11d48"
+  },
+  "theme": {
+    "background":        { "dark": "bg",       "light": "dayBg"      },
+    "backgroundPanel":   { "dark": "bgDark",   "light": "dayBgPanel" },
+    "backgroundElement": { "dark": "bgElem",   "light": "dayBgElem"  },
+    "text":              { "dark": "fg",        "light": "dayFg"      },
+    "textMuted":         { "dark": "fgMuted",   "light": "dayFgMuted" },
+    "primary":           { "dark": "pink",      "light": "dayPink"    },
+    "border":            { "dark": "fgMuted",   "light": "dayFgMuted" },
+    "borderActive":      { "dark": "magenta",   "light": "dayPink"    },
+    "success":           { "dark": "mint",      "light": "dayMint"    },
+    "warning":           { "dark": "peach",     "light": "dayPeach"   },
+    "error":             { "dark": "coral",     "light": "dayCoral"   },
+    "risk": {
+      "low":      { "dark": "mint",      "light": "dayMint"  },
+      "medium":   { "dark": "lavender",  "light": "dayPeach" },
+      "high":     { "dark": "peach",     "light": "dayPeach" },
+      "critical": { "dark": "coralDark", "light": "dayCoral" }
+    }
+  }
+}

@@ -30,8 +30,8 @@ var bundledRosepineDawn []byte
 //go:embed espresso.json
 var bundledEspresso []byte
 
-//go:embed rainbow.json
-var bundledRainbow []byte
+//go:embed unicorn.json
+var bundledUnicorn []byte
 
 type ThemeLoader interface {
 	Load(name string) (*domain.ThemeFile, error)
@@ -88,8 +88,8 @@ func (l *FileThemeLoader) loadBundled(name string) (*domain.ThemeFile, error) {
 		return parseTheme(bundledRosepineDawn)
 	case "espresso":
 		return parseTheme(bundledEspresso)
-	case "rainbow":
-		return parseTheme(bundledRainbow)
+	case "unicorn":
+		return parseTheme(bundledUnicorn)
 	default:
 		return nil, fmt.Errorf("no bundled theme %q", name)
 	}
