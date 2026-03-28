@@ -120,8 +120,11 @@ func runInit(cmd *cobra.Command, dopsDir string) error {
 		}
 
 		scriptPath := filepath.Join(rbDir, scriptName)
-		if err := os.WriteFile(scriptPath, []byte(scriptContent), 0o755); err != nil {
+		if err := os.WriteFile(scriptPath, []byte(scriptContent), 0o600); err != nil {
 			return fmt.Errorf("write %s: %w", scriptName, err)
+		}
+		if err := os.Chmod(scriptPath, 0o755); err != nil {
+			return fmt.Errorf("chmod %s: %w", scriptName, err)
 		}
 		fmt.Fprintf(out, "  %-40s %s\n", rbDir+"/", check(true))
 

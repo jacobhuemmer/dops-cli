@@ -23,7 +23,7 @@ func (r *ScriptRunner) Run(ctx context.Context, scriptPath string, env map[strin
 	errs := make(chan error, 1)
 
 	shell, args := ShellFor(scriptPath)
-	cmd := exec.CommandContext(ctx, shell, args...)
+	cmd := exec.CommandContext(ctx, shell, args...) // #nosec G204 -- shell resolved by ShellFor from script extension
 	cmd.Env = os.Environ()
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", strings.ToUpper(k), v))
