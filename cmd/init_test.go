@@ -60,7 +60,7 @@ func TestInit_ExistingCatalogs(t *testing.T) {
 
 	// Create config with an existing catalog.
 	cfg := &domain.Config{
-		Theme:    "tokyomidnight",
+		Theme:    "github",
 		Defaults: domain.Defaults{MaxRiskLevel: domain.RiskMedium},
 		Catalogs: []domain.Catalog{
 			{Name: "mycat", Path: "/some/path", Active: true},

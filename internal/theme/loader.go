@@ -4,10 +4,19 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"path/filepath"
 
 	"dops/internal/domain"
 )
+
+// bundledNames lists all real theme names for random selection.
+var bundledNames = []string{
+	"doop", "tokyomidnight", "catppuccin-mocha", "catppuccin-latte",
+	"nord", "rosepine-dawn", "espresso", "unicorn", "dracula",
+	"solarized", "gruvbox", "monokai", "kanagawa", "everforest",
+	"synthwave", "one-dark", "nightowl", "github", "ayu", "zenburn",
+}
 
 //go:embed doop.json
 var bundledDoop []byte
@@ -87,6 +96,11 @@ func NewFileLoader(fs FileSystem, themesDir string) *FileThemeLoader {
 }
 
 func (l *FileThemeLoader) Load(name string) (*domain.ThemeFile, error) {
+	// Random theme: pick a different bundled theme each launch.
+	if name == "rainbow" {
+		name = bundledNames[rand.Intn(len(bundledNames))]
+	}
+
 	// 1. Try user theme
 	userPath := filepath.Join(l.themesDir, name+".json")
 	data, err := l.fs.ReadFile(userPath)
@@ -100,9 +114,9 @@ func (l *FileThemeLoader) Load(name string) (*domain.ThemeFile, error) {
 		return tf, nil
 	}
 
-	// 3. Fall back to tokyomidnight (default theme)
-	if name != "tokyomidnight" {
-		return l.loadBundled("tokyomidnight")
+	// 3. Fall back to github (default theme)
+	if name != "github" {
+		return l.loadBundled("github")
 	}
 
 	return nil, fmt.Errorf("theme %q not found and fallback failed", name)

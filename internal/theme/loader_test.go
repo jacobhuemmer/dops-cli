@@ -31,13 +31,13 @@ func TestFileThemeLoader_BundledTheme(t *testing.T) {
 	ffs := newFakeFS()
 	loader := NewFileLoader(ffs, "/fake/themes")
 
-	tf, err := loader.Load("tokyomidnight")
+	tf, err := loader.Load("github")
 	if err != nil {
 		t.Fatalf("Load bundled: %v", err)
 	}
 
-	if tf.Name != "tokyomidnight" {
-		t.Errorf("name = %q, want tokyomidnight", tf.Name)
+	if tf.Name != "github" {
+		t.Errorf("name = %q, want github", tf.Name)
 	}
 	if _, ok := tf.Defs["blue"]; !ok {
 		t.Error("expected 'blue' in defs")
@@ -72,8 +72,8 @@ func TestFileThemeLoader_UnknownFallsBack(t *testing.T) {
 		t.Fatalf("Load fallback: %v", err)
 	}
 
-	if tf.Name != "tokyomidnight" {
-		t.Errorf("name = %q, want tokyomidnight (fallback)", tf.Name)
+	if tf.Name != "github" {
+		t.Errorf("name = %q, want github (fallback)", tf.Name)
 	}
 }
 
