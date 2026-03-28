@@ -99,7 +99,7 @@ func launchTUI(dopsDir string) error {
 	}
 
 	runner := executor.NewScriptRunner()
-	logWriter := adapters.NewLogWriter("/tmp")
+	logWriter := adapters.NewLogWriter(os.TempDir())
 
 	altScreen := os.Getenv("DOPS_NO_ALT_SCREEN") == ""
 	progRef := &tui.ProgramRef{}

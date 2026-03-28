@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -62,7 +63,7 @@ func HandleToolCall(
 	}
 
 	// Create log file.
-	lw := adapters.NewLogWriter("/tmp")
+	lw := adapters.NewLogWriter(os.TempDir())
 	logPath := ""
 	if lp, err := lw.Create(cat.Name, rb.Name, time.Now()); err == nil {
 		logPath = lp

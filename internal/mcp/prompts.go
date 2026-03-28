@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -215,18 +216,30 @@ func (s *Server) registerPrompts() {
 				dopsHome = "~/.dops"
 			}
 
+			scriptFile, scriptField := "script.sh", "script.sh"
+			if runtime.GOOS == "windows" {
+				scriptFile, scriptField = "script.ps1", "script.ps1"
+			}
+
 			var sb strings.Builder
 			sb.WriteString(fmt.Sprintf("Create a new dops runbook at:\n\n"))
 			sb.WriteString(fmt.Sprintf("  %s/catalogs/%s/%s/\n", dopsHome, catalog, name))
 			sb.WriteString(fmt.Sprintf("  ├── runbook.yaml\n"))
-			sb.WriteString(fmt.Sprintf("  └── script.sh\n\n"))
+			sb.WriteString(fmt.Sprintf("  └── %s\n\n", scriptFile))
 			sb.WriteString(fmt.Sprintf("## runbook.yaml\n\n"))
-			sb.WriteString(fmt.Sprintf("```yaml\nname: %s\nversion: 1.0.0\ndescription: %s\nrisk_level: %s\nscript: script.sh\nparameters: []\n```\n\n", name, description, riskLevel))
+			sb.WriteString(fmt.Sprintf("```yaml\nname: %s\nversion: 1.0.0\ndescription: %s\nrisk_level: %s\nscript: %s\nparameters: []\n```\n\n", name, description, riskLevel, scriptField))
 			sb.WriteString("Fill in the parameters list based on what inputs the script needs.\n\n")
-			sb.WriteString("## script.sh\n\n")
-			sb.WriteString("Follow the Google Shell Style Guide. Use the template below as a starting point.\n\n")
-			sb.WriteString("```sh\n#!/bin/sh\nset -eu\n\n# TODO: Add parameter variables\n# ENDPOINT=\"${ENDPOINT:?endpoint is required}\"\n\nmain() {\n  echo \"==> Running " + name + "\"\n  # TODO: Implement\n  echo \"✓ Done\"\n}\n\nmain \"$@\"\n```\n\n")
-			sb.WriteString("Make the script executable: `chmod +x script.sh`\n")
+
+			if runtime.GOOS == "windows" {
+				sb.WriteString("## script.ps1\n\n")
+				sb.WriteString("Use PowerShell Core conventions. Use the template below as a starting point.\n\n")
+				sb.WriteString("```powershell\n$ErrorActionPreference = 'Stop'\n\n# TODO: Add parameter variables\n# $endpoint = if ($env:ENDPOINT) { $env:ENDPOINT } else { throw 'endpoint is required' }\n\nWrite-Output \"==> Running " + name + "\"\n# TODO: Implement\nWrite-Output \"Done\"\n```\n")
+			} else {
+				sb.WriteString("## script.sh\n\n")
+				sb.WriteString("Follow the Google Shell Style Guide. Use the template below as a starting point.\n\n")
+				sb.WriteString("```sh\n#!/bin/sh\nset -eu\n\n# TODO: Add parameter variables\n# ENDPOINT=\"${ENDPOINT:?endpoint is required}\"\n\nmain() {\n  echo \"==> Running " + name + "\"\n  # TODO: Implement\n  echo \"✓ Done\"\n}\n\nmain \"$@\"\n```\n\n")
+				sb.WriteString("Make the script executable: `chmod +x script.sh`\n")
+			}
 
 			return &mcpsdk.GetPromptResult{
 				Description: fmt.Sprintf("Create runbook %s.%s", catalog, name),
