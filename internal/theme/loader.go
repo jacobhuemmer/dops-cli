@@ -98,7 +98,7 @@ func NewFileLoader(fs FileSystem, themesDir string) *FileThemeLoader {
 func (l *FileThemeLoader) Load(name string) (*domain.ThemeFile, error) {
 	// Random theme: pick a different bundled theme each launch.
 	if name == "rainbow" {
-		name = bundledNames[rand.Intn(len(bundledNames))]
+		name = bundledNames[rand.Intn(len(bundledNames))] // #nosec G404 -- cosmetic theme selection, not security-sensitive
 	}
 
 	// 1. Try user theme
