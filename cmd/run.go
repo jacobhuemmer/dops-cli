@@ -167,7 +167,7 @@ func saveInputs(cfg *domain.Config, vlt *vault.Vault, rb *domain.Runbook, catNam
 
 func executeScript(cmd *cobra.Command, scriptPath string, env map[string]string, catName, rbName string) error {
 	shell, shellArgs := executor.ShellFor(scriptPath)
-	c := exec.Command(shell, shellArgs...)
+	c := exec.Command(shell, shellArgs...) // #nosec G204 -- shell resolved by ShellFor from script extension
 	c.Env = os.Environ()
 	for k, v := range env {
 		c.Env = append(c.Env, fmt.Sprintf("%s=%s", strings.ToUpper(k), v))
