@@ -12,6 +12,7 @@ import (
 	"dops/internal/catalog"
 	"dops/internal/config"
 	"dops/internal/domain"
+	"dops/internal/executor"
 	"dops/internal/vars"
 	"dops/internal/vault"
 
@@ -165,7 +166,8 @@ func saveInputs(cfg *domain.Config, vlt *vault.Vault, rb *domain.Runbook, catNam
 }
 
 func executeScript(cmd *cobra.Command, scriptPath string, env map[string]string, catName, rbName string) error {
-	c := exec.Command("sh", scriptPath)
+	shell, shellArgs := executor.ShellFor(scriptPath)
+	c := exec.Command(shell, shellArgs...)
 	c.Env = os.Environ()
 	for k, v := range env {
 		c.Env = append(c.Env, fmt.Sprintf("%s=%s", strings.ToUpper(k), v))
@@ -173,10 +175,10 @@ func executeScript(cmd *cobra.Command, scriptPath string, env map[string]string,
 	c.Stdout = cmd.OutOrStdout()
 	c.Stderr = cmd.ErrOrStderr()
 
-	logPath := fmt.Sprintf("/tmp/%s-%s-%s.log",
+	logPath := filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s-%s.log",
 		time.Now().Format("2006.01.02-150405"),
 		catName, rbName,
-	)
+	))
 
 	logFile, err := os.Create(logPath)
 	if err == nil {

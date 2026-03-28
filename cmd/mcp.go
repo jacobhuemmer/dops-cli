@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	"dops/internal/adapters"
 	catpkg "dops/internal/catalog"
@@ -56,7 +55,7 @@ func newMCPServeCmd(dopsDir string) *cobra.Command {
 				MaxRisk:  domain.RiskLevel(allowRisk),
 			})
 
-			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer cancel()
 
 			switch transport {

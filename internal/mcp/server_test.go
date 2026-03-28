@@ -3,6 +3,8 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -30,7 +32,7 @@ func (r *fakeRunner) Run(ctx context.Context, scriptPath string, env map[string]
 func testCatalogs() []catalog.CatalogWithRunbooks {
 	return []catalog.CatalogWithRunbooks{
 		{
-			Catalog: domain.Catalog{Name: "default", Path: "/tmp/test"},
+			Catalog: domain.Catalog{Name: "default", Path: filepath.Join(os.TempDir(), "test")},
 			Runbooks: []domain.Runbook{
 				{
 					ID:          "default.echo",

@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -23,21 +22,14 @@ func (r *ScriptRunner) Run(ctx context.Context, scriptPath string, env map[strin
 	lines := make(chan OutputLine, 100)
 	errs := make(chan error, 1)
 
-	cmd := exec.CommandContext(ctx, "sh", scriptPath)
+	shell, args := ShellFor(scriptPath)
+	cmd := exec.CommandContext(ctx, shell, args...)
 	cmd.Env = os.Environ()
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", strings.ToUpper(k), v))
 	}
 
-	// Process group so we can kill the entire tree on cancel.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error {
-		if cmd.Process != nil {
-			// Kill the entire process group.
-			return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		}
-		return nil
-	}
+	configurePlatformCancel(cmd)
 	cmd.WaitDelay = 2 * time.Second
 
 	// Use io.Pipe for immediate line delivery without OS pipe buffering.

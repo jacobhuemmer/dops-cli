@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"dops/internal/adapters"
 	"dops/internal/config"
@@ -31,6 +32,25 @@ parameters:
     scope: runbook
 `
 
+const helloWorldRunbookWindows = `name: hello-world
+version: 1.0.0
+description: Prints a greeting message to stdout
+risk_level: low
+script: script.ps1
+parameters:
+  - name: greeting
+    type: string
+    required: true
+    description: Greeting message
+    scope: runbook
+    default: Hello
+  - name: name
+    type: string
+    required: true
+    description: Name to greet
+    scope: runbook
+`
+
 const helloWorldScript = `#!/bin/sh
 set -eu
 
@@ -38,6 +58,14 @@ GREETING="${GREETING:?greeting is required}"
 NAME="${NAME:?name is required}"
 
 echo "${GREETING}, ${NAME}!"
+`
+
+const helloWorldPS1Script = `$ErrorActionPreference = 'Stop'
+
+$greeting = if ($env:GREETING) { $env:GREETING } else { throw 'greeting is required' }
+$name = if ($env:NAME) { $env:NAME } else { throw 'name is required' }
+
+Write-Output "$greeting, $name!"
 `
 
 func newInitCmd(dopsDir string) *cobra.Command {
@@ -81,14 +109,19 @@ func runInit(cmd *cobra.Command, dopsDir string) error {
 			return fmt.Errorf("create runbook dir: %w", err)
 		}
 
+		rbYAML, scriptName, scriptContent := helloWorldRunbook, "script.sh", helloWorldScript
+		if runtime.GOOS == "windows" {
+			rbYAML, scriptName, scriptContent = helloWorldRunbookWindows, "script.ps1", helloWorldPS1Script
+		}
+
 		rbPath := filepath.Join(rbDir, "runbook.yaml")
-		if err := os.WriteFile(rbPath, []byte(helloWorldRunbook), 0o600); err != nil {
+		if err := os.WriteFile(rbPath, []byte(rbYAML), 0o600); err != nil {
 			return fmt.Errorf("write runbook.yaml: %w", err)
 		}
 
-		scriptPath := filepath.Join(rbDir, "script.sh")
-		if err := os.WriteFile(scriptPath, []byte(helloWorldScript), 0o755); err != nil {
-			return fmt.Errorf("write script.sh: %w", err)
+		scriptPath := filepath.Join(rbDir, scriptName)
+		if err := os.WriteFile(scriptPath, []byte(scriptContent), 0o755); err != nil {
+			return fmt.Errorf("write %s: %w", scriptName, err)
 		}
 		fmt.Fprintf(out, "  %-40s %s\n", rbDir+"/", check(true))
 
