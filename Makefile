@@ -3,7 +3,7 @@ VERSION := 0.1.0
 BUILD_DIR := bin
 LDFLAGS := -ldflags "-s -w -X dops/cmd.version=$(VERSION)"
 
-.PHONY: all build test lint clean install screenshots docker web web-dev
+.PHONY: all build test lint clean install screenshots web-demo docker web web-dev
 
 ## Build
 
@@ -59,6 +59,11 @@ screenshots: build
 	"$$CHROME" --headless=new --disable-gpu --screenshot=assets/web-ui-catalog.png --window-size=1800,1000 "file://$(CURDIR)/web/mockups/catalog-and-form.html" 2>/dev/null; \
 	"$$CHROME" --headless=new --disable-gpu --screenshot=assets/web-ui-execution.png --window-size=1800,1000 "file://$(CURDIR)/web/mockups/execution-log.html" 2>/dev/null
 	@echo "Done. Assets in assets/"
+
+web-demo: build
+	@echo "Recording web UI demo GIF..."
+	./tapes/record-web-demo.sh
+	@echo "Done. GIF at assets/web-demo.gif"
 
 tapes: build
 	@echo "Generating feature screenshots..."

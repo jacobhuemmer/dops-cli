@@ -39,7 +39,7 @@
 <div align="center">
   <em>Also available in the browser:</em> <code>dops open</code>
   <br /><br />
-  <img src="assets/web-ui-execution.png" alt="dops web UI" width="900" />
+  <img src="assets/web-demo.gif" alt="dops web UI demo" width="900" />
 </div>
 
 <br />
@@ -298,7 +298,7 @@ The web UI provides:
 - Real-time execution log streaming with ANSI color support
 - Full theme support — mirrors your configured dops theme
 
-The SPA is embedded in the Go binary — no Node.js required at runtime.
+The SPA is embedded in the Go binary — no Node.js required at runtime. See the [Web UI guide](https://jacobhuemmer.github.io/dops-cli/guides/web-ui) for details.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -392,6 +392,7 @@ make vet          # Go vet
 make lint         # golangci-lint
 make web          # Build web UI (requires Node.js)
 make screenshots  # Regenerate README hero screenshots and demo GIF (requires VHS)
+make web-demo     # Record web UI demo GIF (requires Playwright + ffmpeg)
 make docker       # Build Docker image
 make ci           # Run CI checks (vet + test + build)
 ```

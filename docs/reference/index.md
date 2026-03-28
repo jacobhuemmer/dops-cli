@@ -7,4 +7,4 @@ has_children: true
 
 # Reference
 
-CLI commands, keyboard shortcuts, configuration, and theme customization.
+CLI commands, configuration, themes, keyboard shortcuts, and API reference.

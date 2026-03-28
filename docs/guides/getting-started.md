@@ -37,15 +37,33 @@ make install
 
 ---
 
-## First Run
+## Initialize
 
-Launch the TUI:
+```sh
+dops init
+```
+
+This creates `~/.dops/` with a default configuration and a sample hello-world runbook.
+
+---
+
+## Launch the TUI
 
 ```sh
 dops
 ```
 
-On first run, dops creates `~/.dops/` with a default configuration. If no catalogs are configured, the sidebar will be empty.
+Navigate with arrow keys, press Enter to run a runbook, fill in parameters, and confirm.
+
+---
+
+## Launch the Web UI
+
+```sh
+dops open
+```
+
+Opens a browser-based interface at `http://localhost:3000` with the same catalog, forms, and execution streaming. See the [Web UI guide](web-ui) for details.
 
 ---
 
@@ -120,6 +138,16 @@ Update it later:
 
 ```sh
 dops catalog update ops-runbooks
+```
+
+---
+
+## Run a Runbook from the CLI
+
+Execute a runbook non-interactively:
+
+```sh
+dops run my-team.hello-world --param greeting="Hello, world!"
 ```
 
 ---

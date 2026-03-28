@@ -94,7 +94,7 @@ function riskDotClass(level: string): string {
     <nav class="flex-1 overflow-y-auto px-2 pt-1 pb-4">
       <div v-if="loading" class="text-fg-muted text-sm p-2">Loading...</div>
 
-      <div v-for="cat in catalogs" :key="cat.name" class="mb-1">
+      <div v-for="cat in catalogs" :key="cat.name" v-show="!filter || filteredRunbooks(cat).length" class="mb-1">
         <!-- Catalog label -->
         <button
           @click="toggle(cat.name)"

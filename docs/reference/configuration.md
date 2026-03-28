@@ -34,7 +34,7 @@ Settings in `config.json` (user-editable):
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `theme` | string | Active theme name (default: `tokyomidnight`) |
+| `theme` | string | Active theme name (default: `github`) |
 | `defaults.max_risk_level` | string | Maximum risk level to load (`low`, `medium`, `high`, `critical`) |
 | `catalogs` | array | List of catalog entries with `name`, `path`, `active` |
 
@@ -52,24 +52,23 @@ Use `dops config set/get/unset` to manage both — the CLI routes `vars.*` paths
 
 ## Themes
 
-dops ships with 6 bundled themes:
-
-| Theme | Style |
-|-------|-------|
-| `tokyonight` | Dark — cool blue accents |
-| `tokyomidnight` | Dark — deeper background (default) |
-| `catppuccin-mocha` | Dark — warm pastels |
-| `catppuccin-latte` | Light — warm pastels |
-| `nord` | Dark — muted blue-gray |
-| `rosepine-dawn` | Light — soft lavender |
-
-Each theme includes dark and light variants. dops auto-detects your terminal background and selects the appropriate variant.
-
-Switch themes:
+dops ships with 20 built-in themes. Default: `github`.
 
 ```sh
-dops config set theme=catppuccin-mocha
+dops config set theme=dracula
 ```
+
+| Theme | Theme | Theme | Theme |
+|-------|-------|-------|-------|
+| `github` | `dracula` | `gruvbox` | `nord` |
+| `monokai` | `synthwave` | `nightowl` | `one-dark` |
+| `kanagawa` | `everforest` | `solarized` | `espresso` |
+| `unicorn` | `ayu` | `zenburn` | `catppuccin-mocha` |
+| `catppuccin-latte` | `rosepine-dawn` | `doop` | `tokyomidnight` |
+
+Set `theme=rainbow` for a random theme on every launch.
+
+Each theme includes dark and light variants. dops auto-detects your terminal background and selects the appropriate variant. The web UI mirrors your configured theme.
 
 ### Custom Themes
 

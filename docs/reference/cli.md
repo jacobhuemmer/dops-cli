@@ -3,108 +3,53 @@ layout: default
 title: CLI Commands
 nav_order: 1
 parent: Reference
+has_children: true
 ---
 
 # CLI Commands
 
-## dops
-
-Launch the interactive TUI. No arguments required.
-
-```sh
-dops
-```
+dops provides four interfaces: a full-screen **TUI** (default), a **CLI** for scripting, a **Web UI** for browsers, and an **MCP server** for AI agents.
 
 ---
 
-## dops run
+## Core commands
 
-Execute a runbook non-interactively.
+| Command | Description |
+|---------|-------------|
+| [`dops`](cli/dops) | Launch the interactive TUI |
+| [`dops run`](cli/dops-run) | Execute a runbook non-interactively |
+| [`dops open`](cli/dops-open) | Launch the web UI in a browser |
+| [`dops init`](cli/dops-init) | Initialize dops configuration |
 
-```sh
-dops run <catalog.runbook> [--param key=value ...]
-```
+## Catalog commands
 
-| Flag | Description |
-|------|-------------|
-| `--param key=value` | Set a parameter value (repeatable) |
-| `--dry-run` | Show what would execute without running |
+| Command | Description |
+|---------|-------------|
+| [`dops catalog list`](cli/dops-catalog) | List configured catalogs |
+| [`dops catalog add`](cli/dops-catalog) | Add a local catalog directory |
+| [`dops catalog remove`](cli/dops-catalog) | Remove a catalog from config |
+| [`dops catalog install`](cli/dops-catalog) | Install a catalog from a git repository |
+| [`dops catalog update`](cli/dops-catalog) | Update a git-installed catalog |
 
----
+## Configuration commands
 
-## dops catalog
+| Command | Description |
+|---------|-------------|
+| [`dops config set`](cli/dops-config) | Set a configuration value |
+| [`dops config get`](cli/dops-config) | Get a configuration value |
+| [`dops config unset`](cli/dops-config) | Remove a saved value |
+| [`dops config list`](cli/dops-config) | Display the full configuration |
 
-Manage runbook catalogs.
+## AI agent commands
 
-| Subcommand | Description |
-|------------|-------------|
-| `catalog list` | List configured catalogs |
-| `catalog add <path>` | Add a local catalog directory |
-| `catalog remove <name>` | Remove a catalog from config |
-| `catalog install <url>` | Clone a catalog from a git repository |
-| `catalog update <name>` | Pull latest changes for a git catalog |
+| Command | Description |
+|---------|-------------|
+| [`dops mcp serve`](cli/dops-mcp) | Start the MCP server |
+| [`dops mcp tools`](cli/dops-mcp) | List available MCP tools |
 
-```sh
-# Install from git with a specific branch/tag
-dops catalog install https://github.com/org/runbooks.git --ref v2.0
+## Other commands
 
-# Update a git-installed catalog
-dops catalog update my-runbooks
-```
-
----
-
-## dops config
-
-Read and write configuration.
-
-| Subcommand | Description |
-|------------|-------------|
-| `config set key=value` | Set a configuration value |
-| `config get key` | Get a configuration value |
-| `config unset key` | Remove a saved value |
-| `config list` | Display the full configuration (secrets masked) |
-
-```sh
-# Set theme (available: tokyonight, tokyomidnight, catppuccin-mocha, catppuccin-latte, nord, rosepine-dawn)
-dops config set theme=catppuccin-mocha
-
-# Save a global parameter
-dops config set vars.global.region=us-east-1
-
-# View config
-dops config list
-```
-
----
-
-## dops mcp
-
-MCP server for AI agent integration.
-
-| Subcommand | Description |
-|------------|-------------|
-| `mcp serve` | Start the MCP server |
-| `mcp tools` | List available MCP tools |
-
-```sh
-# Start stdio server (for Claude Code)
-dops mcp serve
-
-# Start HTTP server
-dops mcp serve --transport http --port 8080
-
-# Limit exposed risk level
-dops mcp serve --allow-risk medium
-```
-
----
-
-## dops version
-
-Print the version.
-
-```sh
-dops version
-dops --version
-```
+| Command | Description |
+|---------|-------------|
+| [`dops completion`](cli/dops-completion) | Generate shell completion scripts |
+| [`dops version`](cli/dops-version) | Print the version |

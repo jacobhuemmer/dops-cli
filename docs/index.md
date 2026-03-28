@@ -19,12 +19,25 @@ a runbook toolkit for operators and AI agents.
 
 ---
 
+## Terminal UI
+
+<img src="https://raw.githubusercontent.com/jacobhuemmer/dops-cli/main/assets/demo.gif" alt="dops TUI demo" width="900" />
+
+## Web UI
+
+Also available in the browser with `dops open`:
+
+<img src="https://raw.githubusercontent.com/jacobhuemmer/dops-cli/main/assets/web-demo.gif" alt="dops web UI demo" width="900" />
+
+---
+
 ## What is dops?
 
-**dops** is an open-source terminal toolkit for browsing, executing, and managing operational runbooks. It works two ways:
+**dops** is an open-source toolkit for browsing, executing, and managing operational runbooks. It works three ways:
 
-- **For operators** — a full-screen TUI with sidebar navigation, parameter wizards, live streaming output, and risk confirmation gates.
-- **For AI agents** — an MCP server that exposes runbooks as tools, so Claude and other AI agents can execute automation on your behalf.
+- **TUI** — a full-screen terminal interface with sidebar navigation, parameter wizards, and live streaming output
+- **Web UI** — a browser-based interface via `dops open` with the same capabilities
+- **MCP server** — expose runbooks as tools for Claude and other AI agents
 
 Runbooks are simple YAML + shell scripts organized in catalogs. No proprietary DSL, no cloud dependency.
 
@@ -34,11 +47,26 @@ Runbooks are simple YAML + shell scripts organized in catalogs. No proprietary D
 
 ### Interactive TUI
 - Sidebar with catalog tree, search, collapse/expand
-- Metadata panel with click-to-copy paths
+- Metadata panel with runbook details
 - Output pane with live streaming, scrollback, text selection
 - Field-by-field wizard with parameter validation and persistence
 - Risk confirmation gates (high = y/N, critical = type runbook ID)
-- 6 bundled themes: Tokyo Night, Catppuccin, Nord, Rose Pine + custom themes
+- 20 built-in themes
+
+### Web UI
+- Searchable catalog sidebar with risk indicators
+- Parameter forms with dropdowns, toggles, chip multi-select
+- Saved values pre-filled with collapsible review section
+- Risk confirmation dialogs for high and critical operations
+- Real-time execution log streaming with ANSI color support
+- Full theme support — mirrors your configured dops theme
+
+### CLI
+- `dops run <id>` — execute runbooks non-interactively with `--param` flags
+- `dops catalog install <url>` — install shared catalogs from git repos
+- `dops config set/get/list` — manage configuration and saved parameters
+- `dops open` — launch the web UI
+- Shell completion for bash, zsh, fish, powershell
 
 ### MCP Server
 - Expose runbooks as tools for AI agents via Model Context Protocol
@@ -46,12 +74,11 @@ Runbooks are simple YAML + shell scripts organized in catalogs. No proprietary D
 - Sensitive parameters excluded from tool schemas
 - Schema and style guide resources for runbook creation
 
-### CLI
-- `dops run <id>` — execute runbooks non-interactively
-- `dops catalog install <url>` — install catalogs from git repos
-- `dops config set/get/list` — manage configuration
-- `dops mcp serve` — start the MCP server
-- Shell completion for bash, zsh, fish, powershell
+### Catalog System
+- Organize runbooks locally or install shared catalogs from git
+- Runbook aliases for short names (`dops run deploy`)
+- Per-catalog risk policies
+- Encrypted vault for saved parameters (age: X25519 + ChaCha20-Poly1305)
 
 ---
 
@@ -68,6 +95,24 @@ go install github.com/jacobhuemmer/dops-cli@latest
 git clone https://github.com/jacobhuemmer/dops-cli.git
 cd dops-cli && make install
 ```
+
+---
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| [`dops`](/dops-cli/reference/cli/dops) | Launch the interactive TUI |
+| [`dops run`](/dops-cli/reference/cli/dops-run) | Execute a runbook non-interactively |
+| [`dops open`](/dops-cli/reference/cli/dops-open) | Launch the web UI in a browser |
+| [`dops init`](/dops-cli/reference/cli/dops-init) | Initialize configuration |
+| [`dops catalog`](/dops-cli/reference/cli/dops-catalog) | Manage runbook catalogs |
+| [`dops config`](/dops-cli/reference/cli/dops-config) | Read and write configuration |
+| [`dops mcp`](/dops-cli/reference/cli/dops-mcp) | MCP server for AI agents |
+| [`dops completion`](/dops-cli/reference/cli/dops-completion) | Generate shell completions |
+| [`dops version`](/dops-cli/reference/cli/dops-version) | Print the version |
+
+[Full CLI Reference](/dops-cli/reference/cli){: .btn .btn-outline .fs-4 }
 
 ---
 
