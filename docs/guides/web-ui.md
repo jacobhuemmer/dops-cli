@@ -1,8 +1,5 @@
 ---
-layout: default
 title: Web UI
-nav_order: 3
-parent: Guides
 ---
 
 # Web UI

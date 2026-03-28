@@ -1,9 +1,5 @@
 ---
-layout: default
 title: dops mcp
-nav_order: 7
-parent: CLI Commands
-grand_parent: Reference
 ---
 
 # dops mcp

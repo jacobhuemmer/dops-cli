@@ -1,8 +1,5 @@
 ---
-layout: default
 title: Keyboard Shortcuts
-nav_order: 2
-parent: Reference
 ---
 
 # Keyboard Shortcuts

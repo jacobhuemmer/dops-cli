@@ -3,7 +3,7 @@ VERSION := 0.1.0
 BUILD_DIR := bin
 LDFLAGS := -ldflags "-s -w -X dops/cmd.version=$(VERSION)"
 
-.PHONY: all build test lint clean install screenshots web-demo docker web web-dev
+.PHONY: all build test lint clean install screenshots web-demo docker web web-dev docs docs-dev
 
 ## Build
 
@@ -91,6 +91,14 @@ docker-run:
 
 docker-run-http:
 	docker run -p 8080:8080 -v ~/.dops:/data/dops $(BINARY):$(VERSION) --transport http --port 8080
+
+## Docs
+
+docs:
+	cd docs && npm ci && npm run build
+
+docs-dev:
+	cd docs && npm run dev
 
 ## Release (local)
 

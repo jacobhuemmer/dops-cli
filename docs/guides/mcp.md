@@ -1,8 +1,5 @@
 ---
-layout: default
 title: MCP / AI Agents
-nav_order: 4
-parent: Guides
 ---
 
 # MCP / AI Agents

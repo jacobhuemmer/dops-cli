@@ -1,8 +1,5 @@
 ---
-layout: default
 title: Verification
-nav_order: 5
-parent: Guides
 ---
 
 # Verifying dops Releases

@@ -1,9 +1,5 @@
 ---
-layout: default
 title: dops catalog
-nav_order: 6
-parent: CLI Commands
-grand_parent: Reference
 ---
 
 # dops catalog

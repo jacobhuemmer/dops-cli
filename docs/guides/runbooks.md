@@ -1,8 +1,5 @@
 ---
-layout: default
 title: Creating Runbooks
-nav_order: 3
-parent: Guides
 ---
 
 # Creating Runbooks

@@ -1,121 +1,160 @@
 ---
-layout: default
-title: Home
-nav_order: 1
+layout: home
+
+hero:
+  name: dops
+  text: the do(ops) cli
+  tagline: A browsable catalog of automation scripts that operators can select, parameterize, and execute directly from the terminal — or in the browser.
+  image:
+    src: /logo.png
+    alt: dops logo
+  actions:
+    - theme: brand
+      text: Get Started
+      link: /guides/getting-started
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/jacobhuemmer/dops-cli
+
+features:
+  - icon: "🖥️"
+    title: Interactive TUI
+    details: Full-screen terminal UI with sidebar navigation, parameter wizards, live streaming output, and risk confirmation gates.
+  - icon: "🌐"
+    title: Web UI
+    details: Browser-based interface via dops open with real-time log streaming, parameter forms, and full theme support.
+  - icon: "🤖"
+    title: MCP Server
+    details: Expose runbooks as tools for AI agents via the Model Context Protocol. Stdio and HTTP transports.
+  - icon: "📦"
+    title: Catalog System
+    details: Organize runbooks locally or install shared catalogs from git repos. Aliases, risk policies, and encrypted vault.
+  - icon: "⌨️"
+    title: CLI Mode
+    details: Run any runbook non-interactively with dops run. Pass parameters via flags for scripting and CI/CD.
+  - icon: "🎨"
+    title: 20 Themes
+    details: github, dracula, gruvbox, nord, synthwave, catppuccin, and more. Custom themes via JSON.
 ---
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/jacobhuemmer/dops-cli/main/assets/logo.png" alt="dops logo" width="400" />
-</p>
+<style>
+.demo-section {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+.demo-section h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--vp-c-text-1);
+}
+.demo-section p {
+  color: var(--vp-c-text-2);
+  margin-bottom: 1.25rem;
+  font-size: 0.95rem;
+}
+.demo-section img {
+  border-radius: 12px;
+  border: 1px solid var(--vp-c-border);
+  width: 100%;
+}
+.demo-divider {
+  max-width: 960px;
+  margin: 0 auto;
+  border-top: 1px solid var(--vp-c-border);
+}
+.commands-section {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+.commands-section h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--vp-c-text-1);
+}
+.commands-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+.cmd-card {
+  display: block;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 10px;
+  text-decoration: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.cmd-card:hover {
+  border-color: var(--vp-c-brand-1);
+  box-shadow: 0 0 0 1px var(--vp-c-brand-soft);
+}
+.cmd-card code {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vp-c-brand-1);
+}
+.cmd-card span {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--vp-c-text-2);
+}
+</style>
 
-# do(ops) cli
-{: .fs-9 }
+<div class="demo-section">
+  <h2>Terminal UI</h2>
+  <p>Navigate catalogs, fill parameters, confirm risk, and watch live output — all from the terminal.</p>
+  <img src="https://raw.githubusercontent.com/jacobhuemmer/dops-cli/main/assets/demo.gif" alt="dops TUI demo" />
+</div>
 
-a runbook toolkit for operators and AI agents.
-{: .fs-6 .fw-300 }
+<div class="demo-divider"></div>
 
-[Get Started](/dops-cli/guides/getting-started){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[View on GitHub](https://github.com/jacobhuemmer/dops-cli){: .btn .fs-5 .mb-4 .mb-md-0 }
+<div class="demo-section">
+  <h2>Web UI</h2>
+  <p>The same experience in the browser. Launch with <code>dops open</code>.</p>
+  <img src="https://raw.githubusercontent.com/jacobhuemmer/dops-cli/main/assets/web-demo.gif" alt="dops web UI demo" />
+</div>
 
----
+<div class="demo-divider"></div>
 
-## Terminal UI
-
-<img src="https://raw.githubusercontent.com/jacobhuemmer/dops-cli/main/assets/demo.gif" alt="dops TUI demo" width="900" />
-
-## Web UI
-
-Also available in the browser with `dops open`:
-
-<img src="https://raw.githubusercontent.com/jacobhuemmer/dops-cli/main/assets/web-demo.gif" alt="dops web UI demo" width="900" />
-
----
-
-## What is dops?
-
-**dops** is an open-source toolkit for browsing, executing, and managing operational runbooks. It works three ways:
-
-- **TUI** — a full-screen terminal interface with sidebar navigation, parameter wizards, and live streaming output
-- **Web UI** — a browser-based interface via `dops open` with the same capabilities
-- **MCP server** — expose runbooks as tools for Claude and other AI agents
-
-Runbooks are simple YAML + shell scripts organized in catalogs. No proprietary DSL, no cloud dependency.
-
----
-
-## Features
-
-### Interactive TUI
-- Sidebar with catalog tree, search, collapse/expand
-- Metadata panel with runbook details
-- Output pane with live streaming, scrollback, text selection
-- Field-by-field wizard with parameter validation and persistence
-- Risk confirmation gates (high = y/N, critical = type runbook ID)
-- 20 built-in themes
-
-### Web UI
-- Searchable catalog sidebar with risk indicators
-- Parameter forms with dropdowns, toggles, chip multi-select
-- Saved values pre-filled with collapsible review section
-- Risk confirmation dialogs for high and critical operations
-- Real-time execution log streaming with ANSI color support
-- Full theme support — mirrors your configured dops theme
-
-### CLI
-- `dops run <id>` — execute runbooks non-interactively with `--param` flags
-- `dops catalog install <url>` — install shared catalogs from git repos
-- `dops config set/get/list` — manage configuration and saved parameters
-- `dops open` — launch the web UI
-- Shell completion for bash, zsh, fish, powershell
-
-### MCP Server
-- Expose runbooks as tools for AI agents via Model Context Protocol
-- Stdio and HTTP transports with gzip
-- Sensitive parameters excluded from tool schemas
-- Schema and style guide resources for runbook creation
-
-### Catalog System
-- Organize runbooks locally or install shared catalogs from git
-- Runbook aliases for short names (`dops run deploy`)
-- Per-catalog risk policies
-- Encrypted vault for saved parameters (age: X25519 + ChaCha20-Poly1305)
-
----
-
-## Quick Install
-
-```sh
-# Homebrew
-brew install jacobhuemmer/tap/dops
-
-# Go
-go install github.com/jacobhuemmer/dops-cli@latest
-
-# From source
-git clone https://github.com/jacobhuemmer/dops-cli.git
-cd dops-cli && make install
-```
-
----
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| [`dops`](/dops-cli/reference/cli/dops) | Launch the interactive TUI |
-| [`dops run`](/dops-cli/reference/cli/dops-run) | Execute a runbook non-interactively |
-| [`dops open`](/dops-cli/reference/cli/dops-open) | Launch the web UI in a browser |
-| [`dops init`](/dops-cli/reference/cli/dops-init) | Initialize configuration |
-| [`dops catalog`](/dops-cli/reference/cli/dops-catalog) | Manage runbook catalogs |
-| [`dops config`](/dops-cli/reference/cli/dops-config) | Read and write configuration |
-| [`dops mcp`](/dops-cli/reference/cli/dops-mcp) | MCP server for AI agents |
-| [`dops completion`](/dops-cli/reference/cli/dops-completion) | Generate shell completions |
-| [`dops version`](/dops-cli/reference/cli/dops-version) | Print the version |
-
-[Full CLI Reference](/dops-cli/reference/cli){: .btn .btn-outline .fs-4 }
-
----
-
-## Support
-
-If you find dops useful, consider [buying me a coffee](https://buymeacoffee.com/jacobhuemmer).
+<div class="commands-section">
+  <h2>Commands</h2>
+  <div class="commands-grid">
+    <a class="cmd-card" href="/dops-cli/reference/cli/dops">
+      <code>dops</code>
+      <span>Launch the interactive TUI</span>
+    </a>
+    <a class="cmd-card" href="/dops-cli/reference/cli/dops-run">
+      <code>dops run</code>
+      <span>Execute a runbook non-interactively</span>
+    </a>
+    <a class="cmd-card" href="/dops-cli/reference/cli/dops-open">
+      <code>dops open</code>
+      <span>Launch the web UI in a browser</span>
+    </a>
+    <a class="cmd-card" href="/dops-cli/reference/cli/dops-init">
+      <code>dops init</code>
+      <span>Initialize configuration</span>
+    </a>
+    <a class="cmd-card" href="/dops-cli/reference/cli/dops-catalog">
+      <code>dops catalog</code>
+      <span>Manage runbook catalogs</span>
+    </a>
+    <a class="cmd-card" href="/dops-cli/reference/cli/dops-config">
+      <code>dops config</code>
+      <span>Read and write configuration</span>
+    </a>
+    <a class="cmd-card" href="/dops-cli/reference/cli/dops-mcp">
+      <code>dops mcp</code>
+      <span>MCP server for AI agents</span>
+    </a>
+    <a class="cmd-card" href="/dops-cli/reference/cli/dops-completion">
+      <code>dops completion</code>
+      <span>Generate shell completions</span>
+    </a>
+  </div>
+</div>

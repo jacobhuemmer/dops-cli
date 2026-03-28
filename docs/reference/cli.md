@@ -1,9 +1,5 @@
 ---
-layout: default
 title: CLI Commands
-nav_order: 1
-parent: Reference
-has_children: true
 ---
 
 # CLI Commands

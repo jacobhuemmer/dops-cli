@@ -1,9 +1,5 @@
 ---
-layout: default
 title: dops run
-nav_order: 3
-parent: CLI Commands
-grand_parent: Reference
 ---
 
 # dops run

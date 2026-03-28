@@ -1,9 +1,5 @@
 ---
-layout: default
 title: dops completion
-nav_order: 8
-parent: CLI Commands
-grand_parent: Reference
 ---
 
 # dops completion

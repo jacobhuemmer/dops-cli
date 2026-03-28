@@ -1,9 +1,5 @@
 ---
-layout: default
 title: dops config
-nav_order: 5
-parent: CLI Commands
-grand_parent: Reference
 ---
 
 # dops config

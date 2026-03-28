@@ -1,9 +1,5 @@
 ---
-layout: default
 title: dops version
-nav_order: 9
-parent: CLI Commands
-grand_parent: Reference
 ---
 
 # dops version
