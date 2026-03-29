@@ -30,18 +30,53 @@ ENV DOPS_HOME=/data/dops
 RUN mkdir -p /data/dops/catalogs
 
 # Copy sample catalogs into the container.
-COPY catalogs/ /data/dops/catalogs/demo/
+COPY catalogs/ /data/dops/catalogs/
 
-# Write a config that points to the demo catalog.
+# Write a config that registers each catalog directory.
 RUN cat > /data/dops/config.json <<'EOF'
 {
   "theme": "github",
   "defaults": { "max_risk_level": "critical" },
   "catalogs": [
     {
-      "name": "demo",
-      "display_name": "Demo",
-      "path": "/data/dops/catalogs/demo",
+      "name": "text-inputs",
+      "display_name": "Text Inputs",
+      "path": "/data/dops/catalogs/text-inputs",
+      "active": true,
+      "policy": { "max_risk_level": "critical" }
+    },
+    {
+      "name": "numbers",
+      "display_name": "Numbers",
+      "path": "/data/dops/catalogs/numbers",
+      "active": true,
+      "policy": { "max_risk_level": "critical" }
+    },
+    {
+      "name": "selectors",
+      "display_name": "Selectors",
+      "path": "/data/dops/catalogs/selectors",
+      "active": true,
+      "policy": { "max_risk_level": "critical" }
+    },
+    {
+      "name": "toggles",
+      "display_name": "Toggles",
+      "path": "/data/dops/catalogs/toggles",
+      "active": true,
+      "policy": { "max_risk_level": "critical" }
+    },
+    {
+      "name": "complex",
+      "display_name": "Complex",
+      "path": "/data/dops/catalogs/complex",
+      "active": true,
+      "policy": { "max_risk_level": "critical" }
+    },
+    {
+      "name": "secrets",
+      "display_name": "Secrets",
+      "path": "/data/dops/catalogs/secrets",
       "active": true,
       "policy": { "max_risk_level": "critical" }
     }
