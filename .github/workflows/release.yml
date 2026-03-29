@@ -44,6 +44,7 @@ jobs:
           identifier: RunDops.dops
           installers-regex: '\.zip$'
           max-versions-to-keep: 5
+          fork-user: rundops
           token: ${{ secrets.WINGET_TOKEN }}
 
   docker:
