@@ -85,13 +85,16 @@ func runWebUI(dopsDir string, port int, noBrowser bool) error {
 
 	// Start web server.
 	srv := web.NewServer(web.ServerDeps{
-		Config:   cfg,
-		Catalogs: catalogs,
-		Loader:   loader,
-		Runner:   runner,
-		Vault:    vlt,
-		Theme:    resolved,
-		Port:     port,
+		Config:      cfg,
+		ConfigStore: store,
+		Catalogs:    catalogs,
+		Loader:      loader,
+		Runner:      runner,
+		Vault:       vlt,
+		Theme:       resolved,
+		ThemeLoader: themeLoader,
+		IsDark:      isDark,
+		Port:        port,
 	})
 
 	if err := srv.Start(); err != nil {

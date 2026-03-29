@@ -177,4 +177,11 @@ func parseTheme(data []byte) (*domain.ThemeFile, error) {
 	return &tf, nil
 }
 
+// BundledNames returns the list of all built-in theme names.
+func BundledNames() []string {
+	out := make([]string, len(bundledNames))
+	copy(out, bundledNames)
+	return out
+}
+
 var _ ThemeLoader = (*FileThemeLoader)(nil)

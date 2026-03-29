@@ -20,7 +20,7 @@
   <p>A browsable catalog of automation scripts that operators can select, parameterize, and execute directly from the terminal.</p>
 
   <p>
-    <a href="https://rundops.github.io/dops/">Documentation</a>
+    <a href="https://rundops.dev/">Documentation</a>
     &middot;
     <a href="https://github.com/rundops/dops/issues">Report Bug</a>
     &middot;
@@ -249,7 +249,7 @@ parameters:
     scope: global
 ```
 
-See the [runbook guide](https://rundops.github.io/dops/guides/runbooks) for the full YAML schema, parameter types, and shell scripting conventions.
+See the [runbook guide](https://rundops.dev/guides/runbooks) for the full YAML schema, parameter types, and shell scripting conventions.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -274,7 +274,7 @@ dops config set theme=dracula
 
 Set `theme=rainbow` for a random theme on every launch.
 
-Custom themes go in `~/.dops/themes/<name>.json`. See the [configuration reference](https://rundops.github.io/dops/reference/configuration) for the theme schema.
+Custom themes go in `~/.dops/themes/<name>.json`. See the [configuration reference](https://rundops.dev/reference/configuration) for the theme schema.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -298,7 +298,7 @@ The web UI provides:
 - Real-time execution log streaming with ANSI color support
 - Full theme support — mirrors your configured dops theme
 
-The SPA is embedded in the Go binary — no Node.js required at runtime. See the [Web UI guide](https://rundops.github.io/dops/guides/web-ui) for details.
+The SPA is embedded in the Go binary — no Node.js required at runtime. See the [Web UI guide](https://rundops.dev/guides/web-ui) for details.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -334,7 +334,7 @@ docker run -i -v ~/.dops:/data/dops ghcr.io/rundops/dops:latest
 docker run -p 8080:8080 -v ~/.dops:/data/dops ghcr.io/rundops/dops:latest --transport http --port 8080
 ```
 
-See the [MCP guide](https://rundops.github.io/dops/guides/mcp) for details on risk controls, resources, and streaming.
+See the [MCP guide](https://rundops.dev/guides/mcp) for details on risk controls, resources, and streaming.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -355,7 +355,7 @@ See the [MCP guide](https://rundops.github.io/dops/guides/mcp) for details on ri
 | `ctrl+shift+p` | Command palette |
 | `q` | Quit |
 
-See the full [keyboard reference](https://rundops.github.io/dops/reference/keyboard-shortcuts) for output pane controls, search navigation, and wizard shortcuts.
+See the full [keyboard reference](https://rundops.dev/reference/keyboard-shortcuts) for output pane controls, search navigation, and wizard shortcuts.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -404,9 +404,9 @@ make ci           # Run CI checks (vet + test + build)
 <!-- GETTING HELP -->
 ## Getting Help
 
-- [Documentation](https://rundops.github.io/dops/) — guides, reference, and configuration
+- [Documentation](https://rundops.dev/) — guides, reference, and configuration
 - [GitHub Issues](https://github.com/rundops/dops/issues) — bug reports and feature requests
-- [CLI Reference](https://rundops.github.io/dops/reference/cli) — all commands and flags
+- [CLI Reference](https://rundops.dev/reference/cli) — all commands and flags
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

@@ -12,6 +12,7 @@ import (
 	"dops/internal/adapters"
 	"dops/internal/domain"
 	"dops/internal/executor"
+	"dops/internal/theme"
 	"dops/internal/vars"
 )
 
@@ -34,6 +35,8 @@ func (a *api) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/executions/{id}/stream", a.handleStreamExecution)
 	mux.HandleFunc("POST /api/executions/{id}/cancel", a.handleCancelExecution)
 	mux.HandleFunc("GET /api/theme", a.handleGetTheme)
+	mux.HandleFunc("GET /api/themes", a.handleListThemes)
+	mux.HandleFunc("PUT /api/theme", a.handleSetTheme)
 }
 
 // --- Catalog & Runbook Endpoints ---
@@ -257,6 +260,57 @@ func (a *api) handleGetTheme(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, themeResponse{
 		Name:   a.deps.Theme.Name,
 		Colors: a.deps.Theme.Colors,
+	})
+}
+
+func (a *api) handleListThemes(w http.ResponseWriter, _ *http.Request) {
+	active := ""
+	if a.deps.Theme != nil {
+		active = a.deps.Theme.Name
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"active": active,
+		"themes": theme.BundledNames(),
+	})
+}
+
+type setThemeRequest struct {
+	Name string `json:"name"`
+}
+
+func (a *api) handleSetTheme(w http.ResponseWriter, r *http.Request) {
+	var req setThemeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		return
+	}
+
+	tf, err := a.deps.ThemeLoader.Load(req.Name)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("theme %q not found", req.Name)})
+		return
+	}
+
+	resolved, err := theme.Resolve(tf, a.deps.IsDark)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to resolve theme"})
+		return
+	}
+
+	// Update in-memory state.
+	a.deps.Theme = resolved
+	a.deps.Config.Theme = req.Name
+
+	// Persist to config file.
+	if a.deps.ConfigStore != nil {
+		if err := a.deps.ConfigStore.Save(a.deps.Config); err != nil {
+			log.Printf("failed to save theme config: %v", err)
+		}
+	}
+
+	writeJSON(w, http.StatusOK, themeResponse{
+		Name:   resolved.Name,
+		Colors: resolved.Colors,
 	})
 }
 

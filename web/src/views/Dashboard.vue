@@ -29,7 +29,7 @@ onMounted(async () => {
   <div class="flex items-center justify-center h-full overflow-y-auto">
     <div class="text-center max-w-[480px] px-10">
       <!-- Logo -->
-      <div class="font-mono text-4xl font-extrabold text-primary tracking-tight mb-2">
+      <div class="font-mono text-4xl font-bold text-primary tracking-tight mb-2">
         dops
       </div>
 

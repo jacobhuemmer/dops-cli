@@ -1,17 +1,118 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import type { Catalog } from "../lib/types";
+import { fetchThemes, setTheme } from "../lib/api";
+import type { Catalog, RunbookSummary } from "../lib/types";
 
-defineProps<{
+const props = defineProps<{
   catalogs: Catalog[];
   loading: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: "themeChanged", colors: Record<string, string>): void;
+  (e: "update:open", value: boolean): void;
 }>();
 
 const router = useRouter();
 const route = useRoute();
 const collapsed = ref<Record<string, boolean>>({});
 const filter = ref("");
+const searchEl = ref<HTMLInputElement | null>(null);
+const focusedIndex = ref(-1);
+
+const themeNames = ref<string[]>([]);
+const activeTheme = ref("");
+const showThemeMenu = ref(false);
+const themeMenuEl = ref<HTMLElement | null>(null);
+
+// Flat list of visible runbooks for keyboard navigation.
+const visibleRunbooks = computed<RunbookSummary[]>(() => {
+  const result: RunbookSummary[] = [];
+  for (const cat of props.catalogs) {
+    if (collapsed.value[cat.name]) continue;
+    for (const rb of filteredRunbooks(cat)) {
+      result.push(rb);
+    }
+  }
+  return result;
+});
+
+async function loadThemes() {
+  const data = await fetchThemes();
+  themeNames.value = data.themes;
+  activeTheme.value = data.active;
+}
+
+async function selectTheme(name: string) {
+  showThemeMenu.value = false;
+  activeTheme.value = name;
+  const result = await setTheme(name);
+  emit("themeChanged", result.colors);
+}
+
+function onClickOutside(e: MouseEvent) {
+  if (themeMenuEl.value && !themeMenuEl.value.contains(e.target as Node)) {
+    showThemeMenu.value = false;
+  }
+}
+
+// Global keyboard handler.
+function onKeydown(e: KeyboardEvent) {
+  const tag = (e.target as HTMLElement)?.tagName;
+  const isInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+  const isSearchFocused = document.activeElement === searchEl.value;
+
+  // "/" focuses search (unless already typing in an input).
+  if (e.key === "/" && !isInput) {
+    e.preventDefault();
+    searchEl.value?.focus();
+    focusedIndex.value = -1;
+    return;
+  }
+
+  // The rest only apply when search is focused.
+  if (!isSearchFocused) return;
+
+  if (e.key === "Escape") {
+    searchEl.value?.blur();
+    focusedIndex.value = -1;
+    return;
+  }
+
+  const list = visibleRunbooks.value;
+  if (list.length === 0) return;
+
+  if (e.key === "ArrowDown" || (e.key === "j" && e.ctrlKey)) {
+    e.preventDefault();
+    focusedIndex.value = Math.min(focusedIndex.value + 1, list.length - 1);
+    return;
+  }
+
+  if (e.key === "ArrowUp" || (e.key === "k" && e.ctrlKey)) {
+    e.preventDefault();
+    focusedIndex.value = Math.max(focusedIndex.value - 1, -1);
+    return;
+  }
+
+  if (e.key === "Enter" && focusedIndex.value >= 0 && focusedIndex.value < list.length) {
+    e.preventDefault();
+    navigateTo(`/runbook/${list[focusedIndex.value].id}`);
+    searchEl.value?.blur();
+    focusedIndex.value = -1;
+    return;
+  }
+}
+
+onMounted(() => {
+  loadThemes();
+  document.addEventListener("click", onClickOutside);
+  document.addEventListener("keydown", onKeydown);
+});
+onUnmounted(() => {
+  document.removeEventListener("click", onClickOutside);
+  document.removeEventListener("keydown", onKeydown);
+});
 
 function toggle(name: string) {
   collapsed.value[name] = !collapsed.value[name];
@@ -31,6 +132,13 @@ function isActive(rbId: string): boolean {
   return route.path === `/runbook/${rbId}`;
 }
 
+function isFocused(rbId: string): boolean {
+  const idx = focusedIndex.value;
+  if (idx < 0) return false;
+  const list = visibleRunbooks.value;
+  return idx < list.length && list[idx].id === rbId;
+}
+
 function riskDotClass(level: string): string {
   switch (level) {
     case "critical":
@@ -43,6 +151,11 @@ function riskDotClass(level: string): string {
       return "bg-fg-subtle";
   }
 }
+
+function navigateTo(path: string) {
+  router.push(path);
+  emit("update:open", false);
+}
 </script>
 
 <template>
@@ -52,15 +165,44 @@ function riskDotClass(level: string): string {
     <!-- Header -->
     <div class="px-5 pt-5 pb-4 border-b border-border flex items-center justify-between">
       <button
-        @click="router.push('/')"
+        @click="navigateTo('/')"
         class="text-[15px] font-bold text-fg flex items-center gap-2 bg-transparent border-none cursor-pointer p-0 hover:opacity-80 transition-opacity duration-150"
       >
-        <span class="text-primary font-mono text-[13px] font-semibold">dops</span>
+        <span class="text-primary font-mono text-[15px] font-bold tracking-tight">dops</span>
         runbooks
       </button>
       <div class="flex items-center gap-2.5">
+        <!-- Theme selector -->
+        <div ref="themeMenuEl" class="relative">
+          <button
+            @click.stop="showThemeMenu = !showThemeMenu"
+            class="text-fg-subtle hover:text-fg-muted transition-colors duration-150 p-0 bg-transparent border-none cursor-pointer"
+            title="Change theme"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zM0 8a8 8 0 1116 0A8 8 0 010 8zm8-5a5 5 0 00-3.544 8.544L8 8V3z"/></svg>
+          </button>
+
+          <!-- Dropdown -->
+          <div
+            v-if="showThemeMenu"
+            class="absolute right-0 top-8 w-[180px] max-h-[320px] overflow-y-auto bg-bg-panel border border-border rounded-lg shadow-xl z-50 py-1"
+          >
+            <button
+              v-for="name in themeNames"
+              :key="name"
+              @click="selectTheme(name)"
+              :class="name === activeTheme
+                ? 'bg-primary-muted text-primary'
+                : 'text-fg-muted hover:bg-bg-hover hover:text-fg'"
+              class="flex items-center gap-2 w-full text-left px-3 py-1.5 text-[13px] cursor-pointer transition-all duration-100 border-none bg-transparent"
+            >
+              <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="name === activeTheme ? 'bg-primary' : 'bg-transparent'"></span>
+              {{ name }}
+            </button>
+          </div>
+        </div>
         <a
-          href="https://rundops.github.io/dops/"
+          href="https://rundops.dev/"
           target="_blank"
           rel="noopener noreferrer"
           class="text-fg-subtle hover:text-fg-muted transition-colors duration-150"
@@ -83,10 +225,12 @@ function riskDotClass(level: string): string {
     <!-- Search -->
     <div class="px-4 py-3">
       <input
+        ref="searchEl"
         v-model="filter"
         type="text"
         placeholder="Search runbooks\u2026"
         class="w-full px-3 py-[7px] text-[13px] bg-bg border border-border rounded-md text-fg placeholder-fg-subtle focus:border-border-active focus:outline-none transition-colors duration-150"
+        @input="focusedIndex = -1"
       />
     </div>
 
@@ -109,10 +253,14 @@ function riskDotClass(level: string): string {
           <button
             v-for="rb in filteredRunbooks(cat)"
             :key="rb.id"
-            @click="router.push(`/runbook/${rb.id}`)"
-            :class="isActive(rb.id)
-              ? 'bg-primary-muted text-primary'
-              : 'text-fg-muted hover:bg-bg-hover hover:text-fg'"
+            @click="navigateTo(`/runbook/${rb.id}`)"
+            :class="[
+              isActive(rb.id)
+                ? 'bg-primary-muted text-primary'
+                : isFocused(rb.id)
+                  ? 'bg-bg-hover text-fg'
+                  : 'text-fg-muted hover:bg-bg-hover hover:text-fg'
+            ]"
             class="flex items-center gap-2 w-full text-left pl-6 pr-3 py-1.5 text-[13px] rounded-md cursor-pointer transition-all duration-100"
           >
             <span class="flex-1 truncate">{{ rb.name }}</span>

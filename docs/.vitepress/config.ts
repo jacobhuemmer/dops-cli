@@ -3,10 +3,10 @@ import { defineConfig } from "vitepress";
 export default defineConfig({
   title: "dops",
   description: "a runbook toolkit for operators and AI agents",
-  base: "/dops/",
+  base: "/",
 
   head: [
-    ["link", { rel: "icon", type: "image/png", href: "/dops/logo.png" }],
+    ["link", { rel: "icon", type: "image/png", href: "/logo.png" }],
   ],
 
   appearance: "dark",
