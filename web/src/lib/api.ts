@@ -65,3 +65,24 @@ export async function fetchTheme(): Promise<{
   if (!res.ok) return { name: "default", colors: {} };
   return res.json();
 }
+
+export async function fetchThemes(): Promise<{
+  active: string;
+  themes: string[];
+}> {
+  const res = await fetch(`${BASE}/themes`);
+  if (!res.ok) return { active: "", themes: [] };
+  return res.json();
+}
+
+export async function setTheme(
+  name: string
+): Promise<{ name: string; colors: Record<string, string> }> {
+  const res = await fetch(`${BASE}/theme`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error(`Failed to set theme: ${res.statusText}`);
+  return res.json();
+}

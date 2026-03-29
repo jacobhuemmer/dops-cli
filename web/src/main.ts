@@ -20,7 +20,17 @@ const router = createRouter({
       component: () => import("./views/ExecutionView.vue"),
       props: true,
     },
+    {
+      path: "/:pathMatch(.*)*",
+      redirect: "/",
+    },
   ],
 });
 
-createApp(App).use(router).mount("#app");
+const app = createApp(App);
+
+app.config.errorHandler = (err, _instance, info) => {
+  console.error(`[dops] Unhandled error in ${info}:`, err);
+};
+
+app.use(router).mount("#app");

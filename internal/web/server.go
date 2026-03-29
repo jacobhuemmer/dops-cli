@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"dops/internal/config"
 	"dops/internal/domain"
 	"dops/internal/executor"
 	"dops/internal/theme"
@@ -18,13 +19,16 @@ import (
 
 // ServerDeps holds all dependencies for the web server.
 type ServerDeps struct {
-	Config   *domain.Config
-	Catalogs []catpkg.CatalogWithRunbooks
-	Loader   *catpkg.DiskCatalogLoader
-	Runner   executor.Runner
-	Vault    *vault.Vault
-	Theme    *theme.ResolvedTheme
-	Port     int
+	Config      *domain.Config
+	ConfigStore config.ConfigStore
+	Catalogs    []catpkg.CatalogWithRunbooks
+	Loader      *catpkg.DiskCatalogLoader
+	Runner      executor.Runner
+	Vault       *vault.Vault
+	Theme       *theme.ResolvedTheme
+	ThemeLoader theme.ThemeLoader
+	IsDark      bool
+	Port        int
 }
 
 // Server manages the HTTP server for the web UI.
