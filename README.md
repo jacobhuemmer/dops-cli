@@ -13,7 +13,7 @@
 
 <!-- PROJECT LOGO -->
 <div align="center">
-  <img src="assets/logo.png" alt="dops logo" width="400" />
+  <img src="assets/logos/logo-2048.png" alt="dops logo" width="400" />
 
   <h3>the do(ops) cli</h3>
 
