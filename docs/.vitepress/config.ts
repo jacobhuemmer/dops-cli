@@ -7,6 +7,7 @@ export default defineConfig({
 
   head: [
     ["link", { rel: "icon", type: "image/png", href: "/logo.png" }],
+    ["link", { rel: "apple-touch-icon", href: "/logo.png" }],
   ],
 
   appearance: "dark",
