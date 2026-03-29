@@ -1,0 +1,54 @@
+# Demo playground: serves the dops web UI with sample runbooks.
+
+# Stage 1: Build web UI
+FROM node:22-alpine AS web
+WORKDIR /app/web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
+# Stage 2: Build Go binary
+FROM golang:1.26-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=web /app/internal/web/dist/ ./internal/web/dist/
+RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o /dops .
+
+# Stage 3: Runtime
+FROM alpine:3.20
+
+RUN apk add --no-cache git bash
+
+COPY --from=builder /dops /opt/dops/bin/dops
+ENV PATH="/opt/dops/bin:${PATH}"
+
+# Set up demo environment.
+ENV DOPS_HOME=/data/dops
+RUN mkdir -p /data/dops/catalogs
+
+# Copy sample catalogs into the container.
+COPY catalogs/ /data/dops/catalogs/demo/
+
+# Write a config that points to the demo catalog.
+RUN cat > /data/dops/config.json <<'EOF'
+{
+  "theme": "github",
+  "defaults": { "max_risk_level": "critical" },
+  "catalogs": [
+    {
+      "name": "demo",
+      "display_name": "Demo",
+      "path": "/data/dops/catalogs/demo",
+      "active": true,
+      "policy": { "max_risk_level": "critical" }
+    }
+  ]
+}
+EOF
+
+EXPOSE 3000
+
+ENTRYPOINT ["dops", "open", "--no-browser", "--port", "3000"]
