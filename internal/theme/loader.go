@@ -170,11 +170,11 @@ func (l *FileThemeLoader) loadBundled(name string) (*domain.ThemeFile, error) {
 }
 
 func parseTheme(data []byte) (*domain.ThemeFile, error) {
-	var tf domain.ThemeFile
-	if err := json.Unmarshal(data, &tf); err != nil {
+	var themeFile domain.ThemeFile
+	if err := json.Unmarshal(data, &themeFile); err != nil {
 		return nil, fmt.Errorf("parse theme: %w", err)
 	}
-	return &tf, nil
+	return &themeFile, nil
 }
 
 // BundledNames returns the list of all built-in theme names.
