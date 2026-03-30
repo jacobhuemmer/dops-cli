@@ -154,12 +154,16 @@ func newConfigListCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.Co
 
 			vars, vaultErr := vlt.Load()
 			view := configView{Theme: cfg.Theme}
-			if b, e := json.Marshal(cfg.Defaults); e == nil {
-				view.Defaults = b
+			b, err := json.Marshal(cfg.Defaults)
+			if err != nil {
+				return fmt.Errorf("marshal defaults: %w", err)
 			}
-			if b, e := json.Marshal(cfg.Catalogs); e == nil {
-				view.Catalogs = b
+			view.Defaults = b
+			b, err = json.Marshal(cfg.Catalogs)
+			if err != nil {
+				return fmt.Errorf("marshal catalogs: %w", err)
 			}
+			view.Catalogs = b
 			if vaultErr == nil && (len(vars.Global) > 0 || len(vars.Catalog) > 0) {
 				view.Vars = vars
 			}

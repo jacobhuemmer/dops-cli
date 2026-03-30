@@ -72,7 +72,10 @@ func (s *Server) registerTools(maxRisk domain.RiskLevel) {
 			}
 
 			resolved := make(map[string]string) // TODO: pass resolved vars
-			schema := RunbookToInputSchema(rb, resolved)
+			schema, err := RunbookToInputSchema(rb, resolved)
+			if err != nil {
+				continue // skip runbook with unparseable schema
+			}
 
 			s.srv.AddTool(
 				&mcpsdk.Tool{

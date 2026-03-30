@@ -9,7 +9,7 @@ import (
 )
 
 // RunbookToInputSchema generates a JSON Schema for a runbook's parameters.
-func RunbookToInputSchema(rb domain.Runbook, resolved map[string]string) json.RawMessage {
+func RunbookToInputSchema(rb domain.Runbook, resolved map[string]string) (json.RawMessage, error) {
 	properties := make(map[string]any)
 	var required []string
 
@@ -102,8 +102,11 @@ func RunbookToInputSchema(rb domain.Runbook, resolved map[string]string) json.Ra
 		schema["required"] = required
 	}
 
-	data, _ := json.Marshal(schema)
-	return data
+	data, err := json.Marshal(schema)
+	if err != nil {
+		return nil, fmt.Errorf("marshal input schema: %w", err)
+	}
+	return data, nil
 }
 
 // RunbookToDescription generates a tool description for a runbook.
