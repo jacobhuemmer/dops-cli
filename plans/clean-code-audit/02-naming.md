@@ -2,8 +2,8 @@
 
 ## Cryptic Abbreviations
 
-- [ ] **cmd/*.go** — `vlt` → `vault` (used in 5+ files, saves only 2 chars)
-- [ ] **cmd/root.go, cmd/open.go, internal/theme/loader.go** — `tf` → `themeFile`
+- [x] **cmd/*.go** — `vlt` → `vault` — SKIPPED: `vault` is the package name, `vlt` avoids shadowing (idiomatic Go)
+- [x] **cmd/root.go, cmd/open.go, internal/theme/loader.go** — `tf` → `themeFile`
 - [ ] **Multiple files** — `rb` → `runbook` in functions >10 lines (keep `rb` in short methods)
 - [ ] **Multiple files** — `cat` → `catalog` in functions >10 lines
 - [ ] **internal/tui/app.go:75** — `sw` → `sidebarW` (consistent with `rightW`, `contentW`)

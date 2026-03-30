@@ -66,12 +66,12 @@ func runWebUI(dopsDir string, port int, noBrowser, demo bool) error {
 	// Load theme.
 	themesDir := filepath.Join(dopsDir, "themes")
 	themeLoader := theme.NewFileLoader(fs, themesDir)
-	tf, err := themeLoader.Load(cfg.Theme)
+	themeFile, err := themeLoader.Load(cfg.Theme)
 	if err != nil {
 		return fmt.Errorf("load theme: %w", err)
 	}
 	isDark := lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
-	resolved, err := theme.Resolve(tf, isDark)
+	resolved, err := theme.Resolve(themeFile, isDark)
 	if err != nil {
 		return fmt.Errorf("resolve theme: %w", err)
 	}
