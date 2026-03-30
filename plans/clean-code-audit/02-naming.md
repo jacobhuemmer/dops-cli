@@ -4,8 +4,8 @@
 
 - [x] **cmd/*.go** — `vlt` → `vault` — SKIPPED: `vault` is the package name, `vlt` avoids shadowing (idiomatic Go)
 - [x] **cmd/root.go, cmd/open.go, internal/theme/loader.go** — `tf` → `themeFile`
-- [ ] **Multiple files** — `rb` → `runbook` in functions >10 lines (keep `rb` in short methods)
-- [ ] **Multiple files** — `cat` → `catalog` in functions >10 lines
+- [x] **Multiple files** — `rb` → `runbook` in functions >10 lines — SKIPPED: `rb` and `cat` are domain-standard abbreviations used 100+ times across the codebase; renaming creates excessive churn with minimal clarity gain
+- [x] **Multiple files** — `cat` → `catalog` in functions >10 lines — SKIPPED: same rationale as `rb`
 - [x] **internal/tui/app.go:75** — `sw` → `sidebarW` (consistent with `rightW`, `contentW`)
 - [x] **internal/tui/app.go, internal/mcp/tools.go** — `lw` → `logWriter`
 - [x] **internal/vars/decrypting_resolver.go, internal/vault/vault.go** — `enc` → `encrypter`
@@ -16,7 +16,7 @@
 
 ## Inconsistent Naming
 
-- [ ] **4 packages** — `expandHome`/`expandTilde`/`expandPath` — 3 names for the same operation. Remove all private wrappers, call `adapters.ExpandHome` directly.
+- [x] **4 packages** — `expandHome`/`expandTilde`/`expandPath` — 3 names for the same operation. Remove all private wrappers, call `adapters.ExpandHome` directly.
 - [ ] **cmd/*.go** — `catpkg` import alias used inconsistently. Use unaliased `catalog` where no conflict.
 - [ ] **cmd/mcp.go** — `mcppkg` awkward alias. Use `mcp` unaliased or `dopmcp`.
 
