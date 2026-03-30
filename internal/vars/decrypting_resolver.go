@@ -7,6 +7,10 @@ import (
 	"dops/internal/domain"
 )
 
+// DecryptingVarResolver wraps a VarResolver and transparently decrypts
+// encrypted values in the resolved map. It is not yet wired into the
+// default resolver chain but exists as a prepared extension point for
+// when vault encryption is enabled by default.
 type DecryptingVarResolver struct {
 	inner VarResolver
 	encrypter crypto.Encrypter

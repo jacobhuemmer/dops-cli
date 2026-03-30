@@ -9,7 +9,6 @@ import (
 	"dops/internal/domain"
 	"dops/internal/theme"
 	"dops/internal/vars"
-	"dops/internal/vault"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -51,7 +50,7 @@ type Model struct {
 	width    int
 	styles   *theme.Styles
 	cfg      *domain.Config      // config to save into
-	vault    *vault.Vault        // encrypted parameter storage
+	vault    domain.VaultStore    // encrypted parameter storage
 }
 
 // WizardConfig holds options for creating a wizard model.
@@ -145,7 +144,7 @@ func (m *Model) SetStyles(s *theme.Styles) {
 
 // SetStore provides config persistence for the "Save for future runs?" feature.
 // Values are saved to the encrypted vault.
-func (m *Model) SetStore(cfg *domain.Config, vlt *vault.Vault) {
+func (m *Model) SetStore(cfg *domain.Config, vlt domain.VaultStore) {
 	m.cfg = cfg
 	m.vault = vlt
 }

@@ -63,6 +63,13 @@ type CatalogPolicy struct {
 	MaxRiskLevel RiskLevel `json:"max_risk_level"`
 }
 
+// VaultStore abstracts encrypted parameter storage (vault.json).
+type VaultStore interface {
+	Load() (*Vars, error)
+	Save(*Vars) error
+	Exists() bool
+}
+
 type Vars struct {
 	Global  map[string]any         `json:"global"`
 	Catalog map[string]CatalogVars `json:"catalog"`

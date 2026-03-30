@@ -20,7 +20,7 @@ type appDeps struct {
 	FS          config.FileSystem
 	Store       *config.FileConfigStore
 	Cfg         *domain.Config
-	Vault       *vault.Vault
+	Vault       domain.VaultStore
 	ThemeLoader *theme.FileThemeLoader
 	Resolved    *theme.ResolvedTheme
 	Styles      *theme.Styles

@@ -105,7 +105,7 @@ func runInit(cmd *cobra.Command, dopsDir string) error {
 		catDir := filepath.Join(dopsDir, "catalogs", "default")
 		rbDir := filepath.Join(catDir, "hello-world")
 
-		if err := os.MkdirAll(rbDir, 0o750); err != nil {
+		if err := fs.MkdirAll(rbDir, 0o750); err != nil {
 			return fmt.Errorf("create runbook dir: %w", err)
 		}
 
@@ -115,14 +115,15 @@ func runInit(cmd *cobra.Command, dopsDir string) error {
 		}
 
 		rbPath := filepath.Join(rbDir, "runbook.yaml")
-		if err := os.WriteFile(rbPath, []byte(rbYAML), 0o600); err != nil {
+		if err := fs.WriteFile(rbPath, []byte(rbYAML), 0o600); err != nil {
 			return fmt.Errorf("write runbook.yaml: %w", err)
 		}
 
 		scriptPath := filepath.Join(rbDir, scriptName)
-		if err := os.WriteFile(scriptPath, []byte(scriptContent), 0o600); err != nil {
+		if err := fs.WriteFile(scriptPath, []byte(scriptContent), 0o600); err != nil {
 			return fmt.Errorf("write %s: %w", scriptName, err)
 		}
+		// os.Chmod used directly — FileSystem interface doesn't expose Chmod.
 		if err := os.Chmod(scriptPath, 0o755); err != nil {
 			return fmt.Errorf("chmod %s: %w", scriptName, err)
 		}

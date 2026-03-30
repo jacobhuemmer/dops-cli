@@ -24,7 +24,6 @@ import (
 	"dops/internal/tui/wizard"
 	"dops/internal/update"
 	"dops/internal/vars"
-	"dops/internal/vault"
 
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
@@ -178,7 +177,7 @@ type AppDeps struct {
 	ProgramRef *ProgramRef
 	Version    string       // current build version for update checks
 	DopsDir    string       // ~/.dops directory for cache files
-	Vault      *vault.Vault // encrypted parameter storage
+	Vault      domain.VaultStore // encrypted parameter storage
 }
 
 type copiedFlashMsg struct{}

@@ -13,7 +13,6 @@ import (
 	"dops/internal/domain"
 	"dops/internal/executor"
 	"dops/internal/tui"
-	"dops/internal/vault"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
@@ -124,7 +123,7 @@ func titleCase(s string) string {
 // migrateVarsToVault moves saved parameter values from config.json to vault.json.
 // This is a one-time migration for users upgrading from v0.2.0 to v0.3.0.
 // If vault.json already exists or config.json has no vars, this is a no-op.
-func migrateVarsToVault(configPath string, vlt *vault.Vault, fs config.FileSystem) error {
+func migrateVarsToVault(configPath string, vlt domain.VaultStore, fs config.FileSystem) error {
 	if vlt.Exists() {
 		return nil
 	}

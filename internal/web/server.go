@@ -12,19 +12,24 @@ import (
 	"dops/internal/domain"
 	"dops/internal/executor"
 	"dops/internal/theme"
-	"dops/internal/vault"
 
 	catpkg "dops/internal/catalog"
 )
+
+// CatalogLoader is the subset of catalog loading behaviour the web server needs.
+type CatalogLoader interface {
+	FindByID(id string) (*domain.Runbook, *domain.Catalog, error)
+	FindByAlias(alias string) (*domain.Runbook, *domain.Catalog, error)
+}
 
 // ServerDeps holds all dependencies for the web server.
 type ServerDeps struct {
 	Config      *domain.Config
 	ConfigStore config.ConfigStore
 	Catalogs    []catpkg.CatalogWithRunbooks
-	Loader      *catpkg.DiskCatalogLoader
+	Loader      CatalogLoader
 	Runner      executor.Runner
-	Vault       *vault.Vault
+	Vault       domain.VaultStore
 	Theme       *theme.ResolvedTheme
 	ThemeLoader theme.ThemeLoader
 	IsDark      bool
