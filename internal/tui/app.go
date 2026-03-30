@@ -71,7 +71,7 @@ const (
 // Computed once per render/resize cycle, shared across all layout-dependent methods.
 type layoutDims struct {
 	innerW          int
-	sw              int // sidebar logical width
+	sidebarW        int // sidebar logical width
 	rightW          int
 	contentW        int // content width inside bordered right panels
 	panelRows       int
@@ -94,8 +94,8 @@ func (m App) computeLayout() layoutDims {
 	borderSize := layoutBorderSize * 2
 
 	innerW := clamp(m.width-layoutMarginLeft, 1)
-	sw := sidebarWidth(innerW)
-	rightW := clamp(innerW-sw-borderSize-gap, 1)
+	sidebarW := sidebarWidth(innerW)
+	rightW := clamp(innerW-sidebarW-borderSize-gap, 1)
 	contentW := clamp(rightW-borderSize, 1)
 	panelRows := clamp(m.height-layoutMarginTop-1-layoutMarginBottom, 1) // -1 for footer
 
@@ -105,7 +105,7 @@ func (m App) computeLayout() layoutDims {
 	sidebarView := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		PaddingLeft(1).
-		Width(sw).
+		Width(sidebarW).
 		Height(sidebarContentH).
 		Render("")
 	// Measure actual rendered height — don't estimate, since lipgloss
@@ -126,7 +126,7 @@ func (m App) computeLayout() layoutDims {
 
 	return layoutDims{
 		innerW:           innerW,
-		sw:               sw,
+		sidebarW:         sidebarW,
 		rightW:           rightW,
 		contentW:         contentW,
 		panelRows:        panelRows,
@@ -714,7 +714,7 @@ func (m App) viewNormal() tea.View {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(sidebarBorderColor).
 		PaddingLeft(1).
-		Width(l.sw).
+		Width(l.sidebarW).
 		Height(l.sidebarContentH).
 		Render(m.sidebar.View())
 
@@ -1118,8 +1118,8 @@ func (m App) sidebarBounds(mx, my int) (originX, originY int, inBounds bool) {
 	originY = layoutMarginTop + layoutBorderSize
 	originX = layoutMarginLeft + layoutBorderSize + layoutPadLeft
 	innerW := clamp(m.width-layoutMarginLeft, 1)
-	sw := sidebarWidth(innerW) + layoutBorderSize*2 + layoutPadLeft
-	inBounds = mx >= layoutMarginLeft && mx < layoutMarginLeft+sw &&
+	sidebarW := sidebarWidth(innerW) + layoutBorderSize*2 + layoutPadLeft
+	inBounds = mx >= layoutMarginLeft && mx < layoutMarginLeft+sidebarW &&
 		my >= layoutMarginTop && my < m.height
 	return
 }
@@ -1176,8 +1176,8 @@ func (m App) focusTargetFromMouse(msg tea.Msg) (focusTarget, bool) {
 	}
 
 	innerW := clamp(m.width-layoutMarginLeft, 1)
-	sw := sidebarWidth(innerW) + layoutBorderSize*2 + layoutPadLeft
-	sidebarRight := layoutMarginLeft + sw
+	sidebarW := sidebarWidth(innerW) + layoutBorderSize*2 + layoutPadLeft
+	sidebarRight := layoutMarginLeft + sidebarW
 
 	if mx >= layoutMarginLeft && mx < sidebarRight && my >= layoutMarginTop {
 		// Sidebar: only steal focus on click, not hover.
