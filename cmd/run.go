@@ -103,7 +103,7 @@ func newRunCmd(dopsDir string) *cobra.Command {
 			}
 
 			// Execute
-			catPath := expandHome(cat.RunbookRoot())
+			catPath := adapters.ExpandHome(cat.RunbookRoot())
 			scriptPath := filepath.Join(filepath.Dir(
 				filepath.Join(catPath, rb.Name, "runbook.yaml"),
 			), rb.Script)
@@ -194,8 +194,4 @@ func executeScript(cmd *cobra.Command, scriptPath string, env map[string]string,
 	}
 
 	return nil
-}
-
-func expandHome(path string) string {
-	return adapters.ExpandHome(path)
 }

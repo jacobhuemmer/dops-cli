@@ -54,7 +54,7 @@ func HandleToolCall(
 	}
 
 	// Build env and script path.
-	catPath := expandTilde(cat.RunbookRoot())
+	catPath := adapters.ExpandHome(cat.RunbookRoot())
 	scriptPath := filepath.Join(catPath, rb.Name, rb.Script)
 
 	env := make(map[string]string)
@@ -115,10 +115,6 @@ func HandleToolCall(
 		Output:      strings.Join(output, "\n"),
 		Summary:     summary,
 	}, nil
-}
-
-func expandTilde(path string) string {
-	return adapters.ExpandHome(path)
 }
 
 func validateRiskConfirmation(rb domain.Runbook, args map[string]any) error {

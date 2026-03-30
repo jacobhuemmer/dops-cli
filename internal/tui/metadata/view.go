@@ -2,10 +2,9 @@ package metadata
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
+	"dops/internal/adapters"
 	"dops/internal/domain"
 	"dops/internal/theme"
 
@@ -68,7 +67,7 @@ func Render(rb *domain.Runbook, cat *domain.Catalog, width int, copied bool, sty
 			if cat.URL != "" {
 				linkStyle = linkStyle.Hyperlink(cat.URL)
 			} else {
-				linkStyle = linkStyle.Hyperlink("file://" + expandPath(location))
+				linkStyle = linkStyle.Hyperlink("file://" + adapters.ExpandHome(location))
 			}
 			fmt.Fprintf(&sb, " %s", linkStyle.Render(location))
 		}
@@ -77,16 +76,6 @@ func Render(rb *domain.Runbook, cat *domain.Catalog, width int, copied bool, sty
 	return sb.String()
 }
 
-func expandPath(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return path
-		}
-		return filepath.Join(home, path[2:])
-	}
-	return path
-}
 
 func riskBadge(level domain.RiskLevel, styles *theme.Styles) string {
 	label := string(level)
