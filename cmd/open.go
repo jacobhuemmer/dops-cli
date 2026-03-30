@@ -106,7 +106,7 @@ func runWebUI(dopsDir string, port int, noBrowser, demo bool) error {
 	})
 
 	if err := srv.Start(); err != nil {
-		return err
+		return fmt.Errorf("start web server: %w", err)
 	}
 
 	// Open browser.

@@ -162,7 +162,7 @@ func saveInputs(cfg *domain.Config, vlt *vault.Vault, rb *domain.Runbook, catNam
 		}
 
 		if err := config.Set(cfg, keyPath, val); err != nil {
-			return err
+			return fmt.Errorf("save input %q: %w", keyPath, err)
 		}
 	}
 
