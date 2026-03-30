@@ -66,7 +66,7 @@ func newRunCmd(dopsDir string) *cobra.Command {
 				rb, cat, err = loader.FindByAlias(id)
 			}
 			if err != nil {
-				return fmt.Errorf("runbook %q not found (tried ID and alias)", id)
+				return fmt.Errorf("runbook %q not found: %w", id, err)
 			}
 
 			// Check risk policy
