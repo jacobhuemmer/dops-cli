@@ -5,9 +5,9 @@ import (
 	"sync"
 )
 
-// defaultBatchSize is the number of complete lines to accumulate before
+// defaultProgressBatchSize is the number of complete lines to accumulate before
 // flushing a progress notification.
-const defaultBatchSize = 5
+const defaultProgressBatchSize = 5
 
 // ProgressCallback is called with a batch of output lines.
 type ProgressCallback func(chunk string, linesSoFar int)
@@ -27,7 +27,7 @@ type ProgressWriter struct {
 // the callback every batchSize complete lines.
 func NewProgressWriter(batchSize int, callback ProgressCallback) *ProgressWriter {
 	if batchSize <= 0 {
-		batchSize = defaultBatchSize
+		batchSize = defaultProgressBatchSize
 	}
 	return &ProgressWriter{
 		batchSize: batchSize,

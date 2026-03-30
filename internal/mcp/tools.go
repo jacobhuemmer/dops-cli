@@ -15,7 +15,7 @@ import (
 	"dops/internal/vars"
 )
 
-const maxOutputLines = 50
+const maxToolOutputLines = 50
 
 // ToolResult is the structured result returned from a tool call.
 type ToolResult struct {
@@ -73,7 +73,7 @@ func HandleToolCall(
 	start := time.Now()
 	lines, errs := runner.Run(ctx, scriptPath, env)
 
-	pw := NewProgressWriter(defaultBatchSize, onProgress)
+	pw := NewProgressWriter(defaultProgressBatchSize, onProgress)
 	var allLines []string
 	for line := range lines {
 		allLines = append(allLines, line.Text)
@@ -94,8 +94,8 @@ func HandleToolCall(
 
 	// Truncate output to last N lines.
 	output := allLines
-	if len(output) > maxOutputLines {
-		output = output[len(output)-maxOutputLines:]
+	if len(output) > maxToolOutputLines {
+		output = output[len(output)-maxToolOutputLines:]
 	}
 
 	// Summary: last non-empty line.

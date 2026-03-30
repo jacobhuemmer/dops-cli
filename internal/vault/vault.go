@@ -10,7 +10,7 @@ import (
 	"dops/internal/domain"
 )
 
-const currentVersion = 1
+const vaultFormatVersion = 1
 
 // envelope is the on-disk JSON format for vault.json.
 type envelope struct {
@@ -51,7 +51,7 @@ func (v *Vault) Load() (*domain.Vars, error) {
 		return nil, fmt.Errorf("parse vault: %w", err)
 	}
 
-	if env.Version != currentVersion {
+	if env.Version != vaultFormatVersion {
 		return nil, fmt.Errorf("unsupported vault version: %d", env.Version)
 	}
 
@@ -92,7 +92,7 @@ func (v *Vault) Save(vars *domain.Vars) error {
 	}
 
 	env := envelope{
-		Version: currentVersion,
+		Version: vaultFormatVersion,
 		Data:    ciphertext,
 	}
 
