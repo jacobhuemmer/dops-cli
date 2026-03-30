@@ -98,7 +98,7 @@ func runInit(cmd *cobra.Command, dopsDir string) error {
 	if err != nil {
 		return fmt.Errorf("create config: %w", err)
 	}
-	fmt.Fprintf(out, "  %-40s %s\n", configPath, check(true))
+	fmt.Fprintf(out, "  %-40s %s\n", configPath, checkmark(true))
 
 	// If no catalogs configured, scaffold hello-world.
 	if len(cfg.Catalogs) == 0 {
@@ -126,7 +126,7 @@ func runInit(cmd *cobra.Command, dopsDir string) error {
 		if err := os.Chmod(scriptPath, 0o755); err != nil {
 			return fmt.Errorf("chmod %s: %w", scriptName, err)
 		}
-		fmt.Fprintf(out, "  %-40s %s\n", rbDir+"/", check(true))
+		fmt.Fprintf(out, "  %-40s %s\n", rbDir+"/", checkmark(true))
 
 		// Register the catalog.
 		cfg.Catalogs = append(cfg.Catalogs, domain.Catalog{
@@ -137,7 +137,7 @@ func runInit(cmd *cobra.Command, dopsDir string) error {
 		if err := store.Save(cfg); err != nil {
 			return fmt.Errorf("save config: %w", err)
 		}
-		fmt.Fprintf(out, "  %-40s %s\n", "default catalog registered", check(true))
+		fmt.Fprintf(out, "  %-40s %s\n", "default catalog registered", checkmark(true))
 	}
 
 	fmt.Fprintln(out)
@@ -145,7 +145,7 @@ func runInit(cmd *cobra.Command, dopsDir string) error {
 	return nil
 }
 
-func check(ok bool) string {
+func checkmark(ok bool) string {
 	if ok {
 		return "\u2713"
 	}

@@ -25,8 +25,8 @@ const (
 	cacheFile = "update-check.json"
 )
 
-// Result holds the outcome of an update check.
-type Result struct {
+// CheckResult holds the outcome of an update check.
+type CheckResult struct {
 	Available bool   // true if a newer version exists
 	Latest    string // the latest version string (e.g. "0.2.0")
 }
@@ -44,10 +44,10 @@ type githubRelease struct {
 
 // Check queries GitHub for the latest release and compares it to current.
 // It caches results under dopsDir to avoid redundant API calls.
-// Returns a zero Result (Available=false) on any error — never surfaces errors to the caller.
-func Check(current, dopsDir string) Result {
+// Returns a zero CheckResult (Available=false) on any error — never surfaces errors to the caller.
+func Check(current, dopsDir string) CheckResult {
 	if shouldSkip(current) {
-		return Result{}
+		return CheckResult{}
 	}
 
 	cachePath := filepath.Join(dopsDir, cacheFile)
@@ -59,15 +59,15 @@ func Check(current, dopsDir string) Result {
 
 	latest, err := fetchLatest()
 	if err != nil {
-		return Result{}
+		return CheckResult{}
 	}
 
 	writeCache(cachePath, latest)
 
 	if isNewer(latest, current) {
-		return Result{Available: true, Latest: latest}
+		return CheckResult{Available: true, Latest: latest}
 	}
-	return Result{}
+	return CheckResult{}
 }
 
 // shouldSkip returns true for dev builds or empty versions.
@@ -76,31 +76,31 @@ func shouldSkip(v string) bool {
 }
 
 // readCache reads the cached result if it's fresh enough.
-// Returns the Result and true if the cache is valid.
-func readCache(path, current string) (Result, bool) {
+// Returns the CheckResult and true if the cache is valid.
+func readCache(path, current string) (CheckResult, bool) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Result{}, false
+		return CheckResult{}, false
 	}
 
 	var c cache
 	if err := json.Unmarshal(data, &c); err != nil {
-		return Result{}, false
+		return CheckResult{}, false
 	}
 
 	checkedAt, err := time.Parse(time.RFC3339, c.CheckedAt)
 	if err != nil {
-		return Result{}, false
+		return CheckResult{}, false
 	}
 
 	if time.Since(checkedAt) > cacheTTL {
-		return Result{}, false
+		return CheckResult{}, false
 	}
 
 	if isNewer(c.Latest, current) {
-		return Result{Available: true, Latest: c.Latest}, true
+		return CheckResult{Available: true, Latest: c.Latest}, true
 	}
-	return Result{}, true
+	return CheckResult{}, true
 }
 
 // writeCache persists the latest version to disk. Errors are silently ignored.

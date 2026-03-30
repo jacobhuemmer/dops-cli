@@ -30,11 +30,11 @@
 
 ## Generic Names
 
-- [ ] **internal/update/check.go:29** — `Result` → `CheckResult`
-- [ ] **cmd/init.go:148** — `check()` → `checkmark()` (returns a glyph, not a boolean)
-- [ ] **internal/vault/vault.go:13** — `currentVersion` → `vaultFormatVersion`
-- [ ] **internal/mcp/tools.go:18** — `maxOutputLines` → `maxToolOutputLines`
-- [ ] **internal/mcp/progress.go:10** — `defaultBatchSize` → `defaultProgressBatchSize`
+- [x] **internal/update/check.go:29** — `Result` → `CheckResult`
+- [x] **cmd/init.go:148** — `check()` → `checkmark()` (returns a glyph, not a boolean)
+- [x] **internal/vault/vault.go:13** — `currentVersion` → `vaultFormatVersion`
+- [x] **internal/mcp/tools.go:18** — `maxOutputLines` → `maxToolOutputLines`
+- [x] **internal/mcp/progress.go:10** — `defaultBatchSize` → `defaultProgressBatchSize`
 
 ## Const Grouping
 
