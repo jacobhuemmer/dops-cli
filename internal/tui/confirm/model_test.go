@@ -20,7 +20,7 @@ func testCat() domain.Catalog {
 }
 
 func TestConfirm_HighRisk_Y(t *testing.T) {
-	m := New(testRb(domain.RiskHigh), testCat(), map[string]string{}, 60, nil)
+	m := New(Params{Runbook: testRb(domain.RiskHigh), Catalog: testCat(), Resolved: map[string]string{}, Width: 60})
 	m, cmd := m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
 	if cmd == nil {
 		t.Fatal("y should produce a command")
@@ -32,7 +32,7 @@ func TestConfirm_HighRisk_Y(t *testing.T) {
 }
 
 func TestConfirm_HighRisk_N(t *testing.T) {
-	m := New(testRb(domain.RiskHigh), testCat(), map[string]string{}, 60, nil)
+	m := New(Params{Runbook: testRb(domain.RiskHigh), Catalog: testCat(), Resolved: map[string]string{}, Width: 60})
 	m, cmd := m.Update(tea.KeyPressMsg{Code: 'n', Text: "n"})
 	if cmd == nil {
 		t.Fatal("n should produce a command")
@@ -45,7 +45,7 @@ func TestConfirm_HighRisk_N(t *testing.T) {
 
 func TestConfirm_CriticalRisk_TypeID(t *testing.T) {
 	rb := testRb(domain.RiskCritical)
-	m := New(rb, testCat(), map[string]string{}, 60, nil)
+	m := New(Params{Runbook: rb, Catalog: testCat(), Resolved: map[string]string{}, Width: 60})
 
 	// Type the runbook ID.
 	for _, ch := range rb.ID {
@@ -64,7 +64,7 @@ func TestConfirm_CriticalRisk_TypeID(t *testing.T) {
 }
 
 func TestConfirm_CriticalRisk_WrongID(t *testing.T) {
-	m := New(testRb(domain.RiskCritical), testCat(), map[string]string{}, 60, nil)
+	m := New(Params{Runbook: testRb(domain.RiskCritical), Catalog: testCat(), Resolved: map[string]string{}, Width: 60})
 
 	for _, ch := range "wrong-id" {
 		m, _ = m.Update(tea.KeyPressMsg{Code: ch, Text: string(ch)})
@@ -77,7 +77,7 @@ func TestConfirm_CriticalRisk_WrongID(t *testing.T) {
 }
 
 func TestConfirm_Escape(t *testing.T) {
-	m := New(testRb(domain.RiskCritical), testCat(), map[string]string{}, 60, nil)
+	m := New(Params{Runbook: testRb(domain.RiskCritical), Catalog: testCat(), Resolved: map[string]string{}, Width: 60})
 	m, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if cmd == nil {
 		t.Fatal("escape should produce a command")

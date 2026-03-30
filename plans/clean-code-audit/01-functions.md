@@ -22,7 +22,7 @@
 
 - [x] **internal/mcp/tools.go:32** — `HandleToolCall` has 7 params. Introduce `ToolCallRequest` struct.
 - [ ] **internal/tui/app.go:1006** — `applySelectionHighlight` has 7 params. Collapse 4 bounds ints into `Bounds` struct.
-- [ ] **internal/tui/confirm/model.go:25** — `confirm.New` has 5 params. Group into `confirm.Params`.
+- [x] **internal/tui/confirm/model.go:25** — `confirm.New` has 5 params. Group into `confirm.Params`.
 - [ ] **internal/metadata/view.go:33** — `metadata.Render` has 5 params. Group into `RenderParams`.
 - [ ] **internal/tui/output/model.go:645** — `renderScrollbar` has 5+ params. Use `scrollbarParams` struct.
 - [ ] **cmd/run.go:140** — `saveInputs` has 5 params. Group `cfg`+`vlt` into a struct.

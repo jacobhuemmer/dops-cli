@@ -22,15 +22,24 @@ type Model struct {
 	styles  *theme.Styles
 }
 
-func New(rb domain.Runbook, cat domain.Catalog, params map[string]string, width int, styles *theme.Styles) Model {
+// Params groups the inputs for creating a confirm dialog.
+type Params struct {
+	Runbook domain.Runbook
+	Catalog domain.Catalog
+	Resolved map[string]string
+	Width   int
+	Styles  *theme.Styles
+}
+
+func New(p Params) Model {
 	return Model{
-		runbook: rb,
-		catalog: cat,
-		params:  params,
-		risk:    rb.RiskLevel,
+		runbook: p.Runbook,
+		catalog: p.Catalog,
+		params:  p.Resolved,
+		risk:    p.Runbook.RiskLevel,
 		cursor:  1, // default to No
-		width:   width,
-		styles:  styles,
+		width:   p.Width,
+		styles:  p.Styles,
 	}
 }
 

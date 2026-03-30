@@ -650,7 +650,13 @@ func (m App) openConfirm(rb domain.Runbook, cat domain.Catalog, params map[strin
 	if rb.RiskLevel == domain.RiskLow || rb.RiskLevel == domain.RiskMedium || rb.RiskLevel == "" {
 		return m.startExecution(rb, cat, params)
 	}
-	c := confirm.New(rb, cat, params, m.width*overlayWidthRatio/overlayWidthDenom, m.deps.Styles)
+	c := confirm.New(confirm.Params{
+		Runbook:  rb,
+		Catalog:  cat,
+		Resolved: params,
+		Width:    m.width * overlayWidthRatio / overlayWidthDenom,
+		Styles:   m.deps.Styles,
+	})
 	m.conf = &c
 	m.state = stateConfirm
 	return m, nil
