@@ -46,7 +46,13 @@ func TestLayout_SidebarAlignsWithRightPanel(t *testing.T) {
 			sidebarH := lipgloss.Height(sidebarView)
 
 			// Render metadata
-			metaContent := metadata.Render(app.selected, app.selCat, l.contentW, false, testutil.TestStyles())
+			metaContent := metadata.Render(metadata.RenderParams{
+				Runbook: app.selected,
+				Catalog: app.selCat,
+				Width:   l.contentW,
+				Copied:  false,
+				Styles:  testutil.TestStyles(),
+			})
 			metaView := lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				Width(l.contentW).

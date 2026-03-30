@@ -157,6 +157,44 @@ func newCatalogRemoveCmd(dopsDir string) *cobra.Command {
 	}
 }
 
+// cloneRepo clones a git repository into targetDir, optionally checking out
+// ref. It creates the parent directory if needed and returns an error if the
+// target already exists.
+func cloneRepo(url, targetDir, ref string) error {
+	catalogsDir := filepath.Dir(targetDir)
+	if err := os.MkdirAll(catalogsDir, 0o750); err != nil {
+		return fmt.Errorf("create catalogs dir: %w", err)
+	}
+
+	if _, err := os.Stat(targetDir); err == nil {
+		return fmt.Errorf("directory already exists: %s", targetDir)
+	}
+
+	cloneArgs := []string{"clone", url, targetDir}
+	if ref != "" {
+		cloneArgs = []string{"clone", "--branch", ref, url, targetDir}
+	}
+	gitCmd := exec.Command("git", cloneArgs...)
+	gitCmd.Stdout = os.Stdout
+	gitCmd.Stderr = os.Stderr
+	if err := gitCmd.Run(); err != nil {
+		return fmt.Errorf("git clone failed: %w", err)
+	}
+
+	return nil
+}
+
+// registerCatalog appends cat to the catalogs list in the dops config file.
+func registerCatalog(dopsDir string, cat domain.Catalog) error {
+	cfg, err := loadConfig(dopsDir)
+	if err != nil {
+		return err
+	}
+
+	cfg.Catalogs = append(cfg.Catalogs, cat)
+	return saveConfig(dopsDir, cfg)
+}
+
 func newCatalogInstallCmd(dopsDir string) *cobra.Command {
 	var name string
 	var ref string
@@ -192,26 +230,9 @@ func newCatalogInstallCmd(dopsDir string) *cobra.Command {
 				name = strings.TrimSuffix(base, ".git")
 			}
 
-			catalogsDir := filepath.Join(dopsDir, "catalogs")
-			if err := os.MkdirAll(catalogsDir, 0o750); err != nil {
-				return fmt.Errorf("create catalogs dir: %w", err)
-			}
-
-			targetDir := filepath.Join(catalogsDir, name)
-			if _, err := os.Stat(targetDir); err == nil {
-				return fmt.Errorf("directory already exists: %s", targetDir)
-			}
-
-			// Git clone.
-			cloneArgs := []string{"clone", url, targetDir}
-			if ref != "" {
-				cloneArgs = []string{"clone", "--branch", ref, url, targetDir}
-			}
-			gitCmd := exec.Command("git", cloneArgs...)
-			gitCmd.Stdout = os.Stdout
-			gitCmd.Stderr = os.Stderr
-			if err := gitCmd.Run(); err != nil {
-				return fmt.Errorf("git clone failed: %w", err)
+			targetDir := filepath.Join(dopsDir, "catalogs", name)
+			if err := cloneRepo(url, targetDir, ref); err != nil {
+				return err
 			}
 
 			// Validate sub-path stays within the cloned repository.
@@ -224,12 +245,6 @@ func newCatalogInstallCmd(dopsDir string) *cobra.Command {
 				subPath = validated
 			}
 
-			// Add to config.
-			cfg, err := loadConfig(dopsDir)
-			if err != nil {
-				return err
-			}
-
 			cat := domain.Catalog{
 				Name:        name,
 				DisplayName: displayName,
@@ -239,10 +254,9 @@ func newCatalogInstallCmd(dopsDir string) *cobra.Command {
 				Active:      true,
 			}
 			cat.Policy.MaxRiskLevel = maxRisk
-			cfg.Catalogs = append(cfg.Catalogs, cat)
 
 			fmt.Printf("Installed catalog %q from %s\n", name, url)
-			return saveConfig(dopsDir, cfg)
+			return registerCatalog(dopsDir, cat)
 		},
 	}
 
@@ -252,6 +266,34 @@ func newCatalogInstallCmd(dopsDir string) *cobra.Command {
 	cmd.Flags().StringVar(&riskLevel, "risk", "", "max risk level policy (low, medium, high, critical)")
 	cmd.Flags().StringVar(&displayName, "display-name", "", "friendly display name for the sidebar")
 	return cmd
+}
+
+// updateGitRef fetches all remotes and checks out the given ref.
+func updateGitRef(catPath, ref string) error {
+	fetchCmd := exec.Command("git", "-C", catPath, "fetch", "--all") // #nosec G204 -- catPath resolved via EvalSymlinks
+	fetchCmd.Stdout = os.Stdout
+	fetchCmd.Stderr = os.Stderr
+	if err := fetchCmd.Run(); err != nil {
+		return fmt.Errorf("git fetch failed: %w", err)
+	}
+	checkoutCmd := exec.Command("git", "-C", catPath, "checkout", ref) // #nosec G204 -- ref validated by isValidGitRef
+	checkoutCmd.Stdout = os.Stdout
+	checkoutCmd.Stderr = os.Stderr
+	if err := checkoutCmd.Run(); err != nil {
+		return fmt.Errorf("git checkout %q failed: %w", ref, err)
+	}
+	return nil
+}
+
+// pullLatest runs git pull in the given catalog directory.
+func pullLatest(catPath string) error {
+	gitCmd := exec.Command("git", "-C", catPath, "pull") // #nosec G204 -- catPath resolved via EvalSymlinks
+	gitCmd.Stdout = os.Stdout
+	gitCmd.Stderr = os.Stderr
+	if err := gitCmd.Run(); err != nil {
+		return fmt.Errorf("git pull failed: %w", err)
+	}
+	return nil
 }
 
 func newCatalogUpdateCmd(dopsDir string) *cobra.Command {
@@ -316,24 +358,12 @@ func newCatalogUpdateCmd(dopsDir string) *cobra.Command {
 					if !isValidGitRef(ref) {
 						return fmt.Errorf("invalid git ref %q", ref)
 					}
-					fetchCmd := exec.Command("git", "-C", catPath, "fetch", "--all") // #nosec G204 -- catPath resolved via EvalSymlinks
-					fetchCmd.Stdout = os.Stdout
-					fetchCmd.Stderr = os.Stderr
-					if err := fetchCmd.Run(); err != nil {
-						return fmt.Errorf("git fetch failed: %w", err)
-					}
-					checkoutCmd := exec.Command("git", "-C", catPath, "checkout", ref) // #nosec G204 -- ref validated by isValidGitRef
-					checkoutCmd.Stdout = os.Stdout
-					checkoutCmd.Stderr = os.Stderr
-					if err := checkoutCmd.Run(); err != nil {
-						return fmt.Errorf("git checkout %q failed: %w", ref, err)
+					if err := updateGitRef(catPath, ref); err != nil {
+						return err
 					}
 				} else if !cmd.Flags().Changed("display-name") {
-					gitCmd := exec.Command("git", "-C", catPath, "pull") // #nosec G204 -- catPath resolved via EvalSymlinks
-					gitCmd.Stdout = os.Stdout
-					gitCmd.Stderr = os.Stderr
-					if err := gitCmd.Run(); err != nil {
-						return fmt.Errorf("git pull failed: %w", err)
+					if err := pullLatest(catPath); err != nil {
+						return err
 					}
 				}
 			}

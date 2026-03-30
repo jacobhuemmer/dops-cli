@@ -17,7 +17,7 @@ func TestRender(t *testing.T) {
 	}
 
 	cat := &domain.Catalog{Name: "default", Path: "~/.dops/catalogs/default"}
-	out := Render(rb, cat, 40, false, testutil.TestStyles())
+	out := Render(RenderParams{Runbook: rb, Catalog: cat, Width: 40, Styles: testutil.TestStyles()})
 
 	if !strings.Contains(out, "hello-world") {
 		t.Error("output should contain runbook name")
@@ -45,13 +45,13 @@ func TestRender_PathTruncation(t *testing.T) {
 	cat := &domain.Catalog{Name: "default", Path: "~/.dops/catalogs/default"}
 
 	// Wide enough to show full path.
-	wide := Render(rb, cat, 60, false, testutil.TestStyles())
+	wide := Render(RenderParams{Runbook: rb, Catalog: cat, Width: 60, Styles: testutil.TestStyles()})
 	if !strings.Contains(wide, "runbook.yaml") {
 		t.Error("wide render should show full path")
 	}
 
 	// Narrow should truncate with ellipsis.
-	narrow := Render(rb, cat, 30, false, testutil.TestStyles())
+	narrow := Render(RenderParams{Runbook: rb, Catalog: cat, Width: 30, Styles: testutil.TestStyles()})
 	if strings.Contains(narrow, "runbook.yaml") {
 		t.Error("narrow render should truncate path")
 	}
@@ -67,7 +67,7 @@ func TestRender_GitCatalog(t *testing.T) {
 		RiskLevel: domain.RiskHigh,
 	}
 	cat := &domain.Catalog{Name: "public", URL: "https://github.com/org/public-catalog"}
-	out := Render(rb, cat, 50, false, testutil.TestStyles())
+	out := Render(RenderParams{Runbook: rb, Catalog: cat, Width: 50, Styles: testutil.TestStyles()})
 
 	if !strings.Contains(out, "public-catalog") {
 		t.Error("output should contain catalog URL")
@@ -81,7 +81,7 @@ func TestRender_CopiedFlash(t *testing.T) {
 		RiskLevel: domain.RiskLow,
 	}
 	cat := &domain.Catalog{Name: "default", Path: "~/.dops/catalogs/default"}
-	out := Render(rb, cat, 60, true, testutil.TestStyles())
+	out := Render(RenderParams{Runbook: rb, Catalog: cat, Width: 60, Copied: true, Styles: testutil.TestStyles()})
 
 	// Path should still be visible (flashed green, not replaced).
 	if !strings.Contains(out, "runbook.yaml") {
@@ -90,7 +90,7 @@ func TestRender_CopiedFlash(t *testing.T) {
 }
 
 func TestRender_Nil(t *testing.T) {
-	out := Render(nil, nil, 40, false, testutil.TestStyles())
+	out := Render(RenderParams{Width: 40, Styles: testutil.TestStyles()})
 	if len(out) == 0 {
 		t.Error("nil runbook should still produce output")
 	}

@@ -26,10 +26,25 @@ func Location(rb *domain.Runbook, cat *domain.Catalog) string {
 	return ""
 }
 
+// RenderParams groups the arguments for Render.
+type RenderParams struct {
+	Runbook *domain.Runbook
+	Catalog *domain.Catalog
+	Width   int
+	Copied  bool
+	Styles  *theme.Styles
+}
+
 // Render returns the metadata content WITHOUT a border.
 // The parent layout wraps it in a border for consistent alignment.
 // When copied is true, the location line shows "Copied to Clipboard!" instead.
-func Render(rb *domain.Runbook, cat *domain.Catalog, width int, copied bool, styles *theme.Styles) string {
+func Render(p RenderParams) string {
+	rb := p.Runbook
+	cat := p.Catalog
+	width := p.Width
+	copied := p.Copied
+	styles := p.Styles
+
 	if rb == nil {
 		return "  No runbook selected"
 	}
