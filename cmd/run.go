@@ -151,7 +151,7 @@ func printDryRun(cmd *cobra.Command, rb *domain.Runbook, resolved map[string]str
 // saveInputsParams groups the arguments for saveInputs.
 type saveInputsParams struct {
 	Cfg      *domain.Config
-	Vault    *vault.Vault
+	Vault    domain.VaultStore
 	Runbook  *domain.Runbook
 	CatName  string
 	Resolved map[string]string

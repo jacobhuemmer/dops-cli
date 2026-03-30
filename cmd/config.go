@@ -35,7 +35,7 @@ func newConfigCmd(dopsDir string) *cobra.Command {
 	return cmd
 }
 
-func newConfigSetCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.Command {
+func newConfigSetCmd(store config.ConfigStore, vlt domain.VaultStore) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set key=value",
 		Short: "Set a configuration value",
@@ -77,7 +77,7 @@ func newConfigSetCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.Com
 	return cmd
 }
 
-func newConfigGetCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.Command {
+func newConfigGetCmd(store config.ConfigStore, vlt domain.VaultStore) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get key",
 		Short: "Get a configuration value",
@@ -106,7 +106,7 @@ func newConfigGetCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.Com
 	}
 }
 
-func newConfigUnsetCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.Command {
+func newConfigUnsetCmd(store config.ConfigStore, vlt domain.VaultStore) *cobra.Command {
 	return &cobra.Command{
 		Use:   "unset key",
 		Short: "Remove a configuration value",
@@ -133,7 +133,7 @@ func newConfigUnsetCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.C
 	}
 }
 
-func newConfigListCmd(store *config.FileConfigStore, vlt *vault.Vault) *cobra.Command {
+func newConfigListCmd(store config.ConfigStore, vlt domain.VaultStore) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "Display the full configuration",
