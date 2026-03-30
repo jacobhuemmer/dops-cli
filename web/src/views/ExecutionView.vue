@@ -2,7 +2,6 @@
 import { ref, onMounted, onUnmounted, nextTick, computed } from "vue";
 import { useRouter } from "vue-router";
 import { streamExecution, cancelExecution } from "../lib/api";
-import { useToast } from "../lib/toast";
 import { AnsiUp } from "ansi_up";
 
 const props = defineProps<{ id: string }>();
@@ -15,7 +14,6 @@ const outputEl = ref<HTMLElement | null>(null);
 const startTime = ref(Date.now());
 const endTime = ref<number | null>(null);
 
-const toast = useToast();
 const ansi = new AnsiUp();
 ansi.use_classes = false;
 
@@ -57,18 +55,15 @@ onMounted(() => {
       if (msg.startsWith("error")) {
         status.value = "error";
         statusMessage.value = msg;
-        toast.error("Execution failed");
       } else {
         status.value = "success";
         statusMessage.value = "Completed successfully";
-        toast.success("Execution completed");
       }
     },
     () => {
       endTime.value = Date.now();
       status.value = "error";
       statusMessage.value = "Connection lost";
-      toast.error("Connection lost");
     }
   );
 });
@@ -133,6 +128,18 @@ function statusLabel(): string {
       >
         Cancel
       </button>
+      <span
+        v-else-if="status === 'success'"
+        class="px-3.5 py-1.5 text-[13px] font-medium border border-success/40 rounded-md bg-success-muted text-success"
+      >
+        Execution completed
+      </span>
+      <span
+        v-else-if="status === 'error'"
+        class="px-3.5 py-1.5 text-[13px] font-medium border border-error/40 rounded-md bg-error-muted text-error"
+      >
+        Execution failed
+      </span>
     </div>
 
     <!-- Log output -->
