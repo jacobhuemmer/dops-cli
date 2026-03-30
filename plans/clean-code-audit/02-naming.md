@@ -38,4 +38,4 @@
 
 ## Const Grouping
 
-- [ ] **internal/tui/app.go:52-67** — Mixed `layout*`, `overlay*`, `sidebar*`, `copyFlash*` constants in one block. Group by concern.
+- [x] **internal/tui/app.go:52-67** — Mixed `layout*`, `overlay*`, `sidebar*`, `copyFlash*` constants in one block. Group by concern.

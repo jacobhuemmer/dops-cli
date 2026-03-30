@@ -48,7 +48,7 @@ const (
 	focusOutput
 )
 
-// Layout constants shared between rendering and mouse translation.
+// Layout margins and borders for rendering and mouse translation.
 const (
 	layoutMarginLeft   = 3
 	layoutMarginTop    = 3
@@ -57,15 +57,21 @@ const (
 	layoutPadLeft      = 1 // sidebar content left padding
 )
 
-// Layout constants for overlay sizing and flash durations.
+// Sidebar sizing constraints.
 const (
-	overlayWidthRatio = 2  // overlay width = terminal width * overlayWidthRatio / overlayWidthDenom
+	sidebarMinWidth = 30
+	sidebarMaxWidth = 50
+)
+
+// Overlay sizing ratios.
+const (
+	overlayWidthRatio = 2 // overlay width = terminal width * overlayWidthRatio / overlayWidthDenom
 	overlayWidthDenom = 3
 	overlayMinWidth   = 50
-	sidebarMinWidth   = 30
-	sidebarMaxWidth   = 50
-	copyFlashDuration = 1500 * time.Millisecond
 )
+
+// UI feedback timing.
+const copyFlashDuration = 1500 * time.Millisecond
 
 // layoutDims holds pre-computed layout dimensions for the main view.
 // Computed once per render/resize cycle, shared across all layout-dependent methods.
