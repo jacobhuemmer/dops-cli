@@ -19,8 +19,8 @@
 - [x] **cmd/catalog.go:102** — `loadConfig` error not wrapped
 - [x] **cmd/catalog.go:184** — `ValidateDisplayName` error not wrapped (2nd occurrence)
 - [x] **cmd/catalog.go:287** — `ValidateDisplayName` error not wrapped (3rd occurrence)
-- [ ] **cmd/run.go:165** — `config.Set` error not wrapped
-- [ ] **cmd/open.go:108** — `srv.Start` error not wrapped
+- [x] **cmd/run.go:165** — `config.Set` error not wrapped
+- [x] **cmd/open.go:108** — `srv.Start` error not wrapped
 - [ ] **internal/mcp/server.go:216** — `srv.Connect` error not wrapped
 - [ ] **internal/mcp/watcher.go:30** — `fsnotify.NewWatcher` error not wrapped
 - [ ] **internal/update/check.go:126** — `client.Get` error not wrapped
