@@ -19,7 +19,10 @@ func TestRunbookToInputSchema_BasicTypes(t *testing.T) {
 		},
 	}
 
-	schema := RunbookToInputSchema(rb, nil)
+	schema, err := RunbookToInputSchema(rb, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var parsed map[string]any
 	if err := json.Unmarshal(schema, &parsed); err != nil {
 		t.Fatal(err)
@@ -51,7 +54,10 @@ func TestRunbookToInputSchema_ExcludesSensitive(t *testing.T) {
 		},
 	}
 
-	schema := RunbookToInputSchema(rb, nil)
+	schema, err := RunbookToInputSchema(rb, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var parsed map[string]any
 	json.Unmarshal(schema, &parsed)
 
@@ -70,7 +76,10 @@ func TestRunbookToInputSchema_RiskConfirmation(t *testing.T) {
 		RiskLevel: domain.RiskCritical,
 	}
 
-	schema := RunbookToInputSchema(rb, nil)
+	schema, err := RunbookToInputSchema(rb, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var parsed map[string]any
 	json.Unmarshal(schema, &parsed)
 

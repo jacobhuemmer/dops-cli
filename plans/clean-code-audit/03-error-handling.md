@@ -31,8 +31,8 @@
 
 ## Inconsistent Patterns
 
-- [ ] **cmd/config.go:155-165** — `json.Marshal` errors silently ignored in config list. Show warning or return error.
-- [ ] **internal/mcp/schema.go:105** — `json.Marshal` error discarded with `_`. Handle or return `(json.RawMessage, error)`.
+- [x] **cmd/config.go:155-165** — `json.Marshal` errors silently ignored in config list. Show warning or return error.
+- [x] **internal/mcp/schema.go:105** — `json.Marshal` error discarded with `_`. Handle or return `(json.RawMessage, error)`.
 
 ## Acceptable (documented, no change needed)
 
