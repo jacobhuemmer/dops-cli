@@ -2,8 +2,8 @@
 
 ## Long Functions (>30 lines)
 
-- [ ] **cmd/catalog.go:160** — `newCatalogInstallCmd` RunE (~75 lines). Extract `cloneRepo()`, `registerCatalog()`.
-- [ ] **cmd/catalog.go:257** — `newCatalogUpdateCmd` RunE (~90 lines). Extract `updateDisplayName()`, `pullOrCheckout()`, `updateRiskPolicy()`.
+- [x] **cmd/catalog.go:160** — `newCatalogInstallCmd` RunE (~75 lines). Extract `cloneRepo()`, `registerCatalog()`.
+- [x] **cmd/catalog.go:257** — `newCatalogUpdateCmd` RunE (~90 lines). Extract `updateDisplayName()`, `pullOrCheckout()`, `updateRiskPolicy()`.
 - [ ] **cmd/run.go:22** — `newRunCmd` RunE (~80 lines). Extract `loadRunDeps()`, `resolveRunbook()`.
 - [ ] **cmd/root.go:52** — `launchTUI` (~73 lines). Extract shared `loadDeps(dopsDir)`.
 - [ ] **cmd/open.go:45** — `runWebUI` (~84 lines). Reuse shared `loadDeps()` with `launchTUI`.
@@ -23,7 +23,7 @@
 - [x] **internal/mcp/tools.go:32** — `HandleToolCall` has 7 params. Introduce `ToolCallRequest` struct.
 - [x] **internal/tui/app.go:1006** — `applySelectionHighlight` has 7 params. Collapse 4 bounds ints into `Bounds` struct.
 - [x] **internal/tui/confirm/model.go:25** — `confirm.New` has 5 params. Group into `confirm.Params`.
-- [ ] **internal/metadata/view.go:33** — `metadata.Render` has 5 params. Group into `RenderParams`.
+- [x] **internal/metadata/view.go:33** — `metadata.Render` has 5 params. Group into `RenderParams`.
 - [x] **internal/tui/output/model.go:645** — `renderScrollbar` has 5+ params. Use `scrollbarParams` struct.
 - [ ] **cmd/run.go:140** — `saveInputs` has 5 params. Group `cfg`+`vlt` into a struct.
 
@@ -35,6 +35,6 @@
 
 ## Deep Nesting (>2-3 levels)
 
-- [ ] **internal/catalog/loader.go:90** — `buildAliasIndex` — 4 levels. Extract `registerAlias()`.
+- [x] **internal/catalog/loader.go:90** — `buildAliasIndex` — 4 levels. Extract `registerAlias()`.
 - [ ] **internal/tui/wizard/model.go:313** — `updateTextInput` — 3+ levels. Extract `validateTextValue()`.
-- [ ] **cmd/catalog.go:302** — `newCatalogUpdateCmd` git operations — 4 levels. Extract `updateGitRef()`, `pullLatest()`.
+- [x] **cmd/catalog.go:302** — `newCatalogUpdateCmd` git operations — 4 levels. Extract `updateGitRef()`, `pullLatest()`.

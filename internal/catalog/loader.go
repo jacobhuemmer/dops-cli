@@ -89,23 +89,29 @@ func (l *DiskCatalogLoader) buildAliasIndex() {
 
 	for ci, cwr := range l.loaded {
 		for ri, rb := range cwr.Runbooks {
-			for _, alias := range rb.Aliases {
-				if err := domain.ValidateAlias(alias); err != nil {
-					log.Printf("warning: runbook %q: skipping invalid alias %q: %v", rb.ID, alias, err)
-					continue
-				}
-				if ids[alias] {
-					log.Printf("warning: runbook %q: alias %q collides with an existing runbook ID, skipping", rb.ID, alias)
-					continue
-				}
-				if existing, ok := l.aliases[alias]; ok {
-					existingID := l.loaded[existing.catalogIdx].Runbooks[existing.runbookIdx].ID
-					log.Printf("warning: runbook %q: alias %q already claimed by %q, skipping", rb.ID, alias, existingID)
-					continue
-				}
-				l.aliases[alias] = aliasEntry{catalogIdx: ci, runbookIdx: ri}
-			}
+			l.registerAlias(ids, ci, ri, rb)
 		}
+	}
+}
+
+// registerAlias records each alias for a single runbook, skipping invalid,
+// colliding, or duplicate aliases with a logged warning.
+func (l *DiskCatalogLoader) registerAlias(ids map[string]bool, ci, ri int, rb domain.Runbook) {
+	for _, alias := range rb.Aliases {
+		if err := domain.ValidateAlias(alias); err != nil {
+			log.Printf("warning: runbook %q: skipping invalid alias %q: %v", rb.ID, alias, err)
+			continue
+		}
+		if ids[alias] {
+			log.Printf("warning: runbook %q: alias %q collides with an existing runbook ID, skipping", rb.ID, alias)
+			continue
+		}
+		if existing, ok := l.aliases[alias]; ok {
+			existingID := l.loaded[existing.catalogIdx].Runbooks[existing.runbookIdx].ID
+			log.Printf("warning: runbook %q: alias %q already claimed by %q, skipping", rb.ID, alias, existingID)
+			continue
+		}
+		l.aliases[alias] = aliasEntry{catalogIdx: ci, runbookIdx: ri}
 	}
 }
 

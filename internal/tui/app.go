@@ -119,7 +119,13 @@ func (m App) computeLayout() layoutDims {
 	sidebarRenderedH := lipgloss.Height(sidebarView)
 	sidebarRenderedW := lipgloss.Width(sidebarView)
 
-	metaContent := metadata.Render(m.selected, m.selCat, contentW, m.copiedFlash, m.deps.Styles)
+	metaContent := metadata.Render(metadata.RenderParams{
+		Runbook: m.selected,
+		Catalog: m.selCat,
+		Width:   contentW,
+		Copied:  m.copiedFlash,
+		Styles:  m.deps.Styles,
+	})
 	metaView := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		Width(contentW).
@@ -731,7 +737,13 @@ func (m App) viewNormal() tea.View {
 		Render(m.sidebar.View())
 
 	// --- Metadata ---
-	metaContent := metadata.Render(m.selected, m.selCat, l.contentW, m.copiedFlash, m.deps.Styles)
+	metaContent := metadata.Render(metadata.RenderParams{
+		Runbook: m.selected,
+		Catalog: m.selCat,
+		Width:   l.contentW,
+		Copied:  m.copiedFlash,
+		Styles:  m.deps.Styles,
+	})
 
 	// Cap metadata height so the output pane keeps a minimum of 3 rows.
 	// The meta border adds 2 rows, so max content lines = sidebarH - 3(output min) - 2(border).
