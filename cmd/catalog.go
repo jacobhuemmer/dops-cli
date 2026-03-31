@@ -162,11 +162,11 @@ func newCatalogRemoveCmd(dopsDir string) *cobra.Command {
 // target already exists.
 func cloneRepo(url, targetDir, ref string) error {
 	catalogsDir := filepath.Dir(targetDir)
-	if err := os.MkdirAll(catalogsDir, 0o750); err != nil {
+	if err := os.MkdirAll(catalogsDir, 0o750); err != nil { // #nosec G304 -- targetDir is dopsDir/catalogs/<name>
 		return fmt.Errorf("create catalogs dir: %w", err)
 	}
 
-	if _, err := os.Stat(targetDir); err == nil {
+	if _, err := os.Stat(targetDir); err == nil { // #nosec G304 -- targetDir is dopsDir/catalogs/<name>
 		return fmt.Errorf("directory already exists: %s", targetDir)
 	}
 
@@ -174,7 +174,7 @@ func cloneRepo(url, targetDir, ref string) error {
 	if ref != "" {
 		cloneArgs = []string{"clone", "--branch", ref, url, targetDir}
 	}
-	gitCmd := exec.Command("git", cloneArgs...)
+	gitCmd := exec.Command("git", cloneArgs...) // #nosec G204 -- url and ref are user-provided CLI args for git clone
 	gitCmd.Stdout = os.Stdout
 	gitCmd.Stderr = os.Stderr
 	if err := gitCmd.Run(); err != nil {
