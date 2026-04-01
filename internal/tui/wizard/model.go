@@ -5,10 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"dops/internal/config"
 	"dops/internal/domain"
 	"dops/internal/theme"
-	"dops/internal/vars"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -27,8 +25,9 @@ const (
 type wizardPhase int
 
 const (
-	phaseInput   wizardPhase = iota // collecting user input
-	phaseSave                       // asking "Save for future runs?"
+	phaseInput       wizardPhase = iota // collecting user input
+	phaseSave                           // asking "Save for future runs?"
+	phaseWaitingSave                    // waiting for App to confirm save
 )
 
 type Model struct {
@@ -47,10 +46,8 @@ type Model struct {
 	prefill  map[string]bool     // tracks which fields had saved values
 	showAll  bool                // when true, show all fields including prefilled
 	skipped  map[int]bool        // indices of auto-applied (skipped) fields
-	width    int
-	styles   *theme.Styles
-	cfg      *domain.Config      // config to save into
-	vault    domain.VaultStore    // encrypted parameter storage
+	width  int
+	styles *theme.Styles
 }
 
 // WizardConfig holds options for creating a wizard model.
@@ -140,13 +137,6 @@ func (m Model) SkippedCount() int {
 
 func (m *Model) SetStyles(s *theme.Styles) {
 	m.styles = s
-}
-
-// SetStore provides config persistence for the "Save for future runs?" feature.
-// Values are saved to the encrypted vault.
-func (m *Model) SetStore(cfg *domain.Config, vlt domain.VaultStore) {
-	m.cfg = cfg
-	m.vault = vlt
 }
 
 func (m *Model) initField(idx int) {
@@ -294,7 +284,19 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case SaveFieldResultMsg:
+		if msg.Err != nil {
+			m.err = fmt.Sprintf("save failed: %v", msg.Err)
+		}
+		m.phase = phaseInput
+		return m.advance()
+
 	case tea.KeyPressMsg:
+		// Ignore keypresses while waiting for save result.
+		if m.phase == phaseWaitingSave {
+			return m, nil
+		}
+
 		if msg.Code == tea.KeyEscape {
 			return m, func() tea.Msg { return CancelMsg{} }
 		}
@@ -488,17 +490,31 @@ func (m Model) updateSaveConfirm(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case msg.Code == tea.KeyRight || msg.Text == "l":
 		m.cursor = 1 // No
 	case msg.Text == "y" || msg.Text == "Y":
-		m.saveCurrentField()
-		return m.advance()
+		return m.emitSave()
 	case msg.Text == "n" || msg.Text == "N":
 		return m.advance()
 	case msg.Code == tea.KeyEnter:
 		if m.cursor == 0 {
-			m.saveCurrentField()
+			return m.emitSave()
 		}
 		return m.advance()
 	}
 	return m, nil
+}
+
+// emitSave sends a SaveFieldMsg to the parent and transitions to phaseWaitingSave.
+func (m Model) emitSave() (Model, tea.Cmd) {
+	p := m.params[m.current]
+	m.phase = phaseWaitingSave
+	return m, func() tea.Msg {
+		return SaveFieldMsg{
+			Scope:       p.Scope,
+			ParamName:   p.Name,
+			CatalogName: m.catalog.Name,
+			RunbookName: m.runbook.Name,
+			Value:       m.values[p.Name],
+		}
+	}
 }
 
 // advanceOrSave shows the save prompt if value was changed, otherwise advances.
@@ -514,25 +530,6 @@ func (m Model) advanceOrSave() (Model, tea.Cmd) {
 		return m, nil
 	}
 	return m.advance()
-}
-
-func (m *Model) saveCurrentField() {
-	if m.vault == nil || m.cfg == nil {
-		return
-	}
-	p := m.params[m.current]
-	val := m.values[p.Name]
-
-	// Set the value in the in-memory config (vault stores plaintext — no per-value encryption).
-	keyPath := vars.VarKeyPath(p.Scope, p.Name, m.catalog.Name, m.runbook.Name)
-
-	if err := config.Set(m.cfg, keyPath, val); err != nil {
-		m.err = fmt.Sprintf("save failed: %v", err)
-		return
-	}
-	if err := m.vault.Save(&m.cfg.Vars); err != nil {
-		m.err = fmt.Sprintf("save failed: %v", err)
-	}
 }
 
 func (m Model) advance() (Model, tea.Cmd) {

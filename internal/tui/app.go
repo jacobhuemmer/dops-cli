@@ -384,6 +384,20 @@ func (m App) handleAppMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.wizard = nil
 		return m, nil, true
 
+	case wizard.SaveFieldMsg:
+		var saveErr error
+		if m.deps.Config == nil || m.deps.Vault == nil {
+			saveErr = fmt.Errorf("persistence not configured")
+		} else {
+			keyPath := vars.VarKeyPath(msg.Scope, msg.ParamName, msg.CatalogName, msg.RunbookName)
+			if err := config.Set(m.deps.Config, keyPath, msg.Value); err != nil {
+				saveErr = err
+			} else if err := m.deps.Vault.Save(&m.deps.Config.Vars); err != nil {
+				saveErr = err
+			}
+		}
+		return m, func() tea.Msg { return wizard.SaveFieldResultMsg{Err: saveErr} }, true
+
 	case palette.PaletteSelectMsg:
 		m.state = stateNormal
 		m.pal = nil
@@ -646,9 +660,6 @@ func (m App) openWizard() (tea.Model, tea.Cmd) {
 		Resolved: resolved,
 	})
 	wiz.SetStyles(m.deps.Styles)
-	if m.deps.Config != nil {
-		wiz.SetStore(m.deps.Config, m.deps.Vault)
-	}
 	m.wizard = &wiz
 	m.state = stateWizard
 	return m, wiz.Init()
