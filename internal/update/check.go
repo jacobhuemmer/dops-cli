@@ -117,9 +117,12 @@ func writeCache(path, latest string) {
 	_ = os.WriteFile(path, data, 0o600)
 }
 
+// apiBaseURL is the GitHub API base URL. Override in tests to use httptest.
+var apiBaseURL = "https://api.github.com"
+
 // fetchLatest hits the GitHub Releases API and returns the latest version tag.
 func fetchLatest() (string, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", githubRepo)
+	url := fmt.Sprintf("%s/repos/%s/releases/latest", apiBaseURL, githubRepo)
 
 	client := &http.Client{Timeout: httpTimeout}
 	resp, err := client.Get(url) // nolint:noctx -- fire-and-forget update check

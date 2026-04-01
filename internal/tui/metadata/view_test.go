@@ -74,6 +74,30 @@ func TestRender_GitCatalog(t *testing.T) {
 	}
 }
 
+func TestRender_HyperlinkTarget(t *testing.T) {
+	rb := &domain.Runbook{Name: "hello-world", Version: "1.0.0", RiskLevel: domain.RiskLow}
+
+	t.Run("git catalog uses URL hyperlink", func(t *testing.T) {
+		cat := &domain.Catalog{Name: "public", URL: "https://github.com/org/repo"}
+		out := Render(RenderParams{Runbook: rb, Catalog: cat, Width: 80, Styles: testutil.TestStyles()})
+		// OSC8 hyperlink embeds the URL in the escape sequence
+		if !strings.Contains(out, "https://github.com/org/repo") {
+			t.Error("git catalog should embed URL as hyperlink target")
+		}
+		if strings.Contains(out, "file://") {
+			t.Error("git catalog should NOT use file:// hyperlink")
+		}
+	})
+
+	t.Run("local catalog uses file hyperlink", func(t *testing.T) {
+		cat := &domain.Catalog{Name: "default", Path: "~/.dops/catalogs/default"}
+		out := Render(RenderParams{Runbook: rb, Catalog: cat, Width: 80, Styles: testutil.TestStyles()})
+		if !strings.Contains(out, "file://") {
+			t.Error("local catalog should use file:// hyperlink")
+		}
+	})
+}
+
 func TestRender_CopiedFlash(t *testing.T) {
 	rb := &domain.Runbook{
 		Name:      "hello-world",

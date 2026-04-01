@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	lipgloss "charm.land/lipgloss/v2"
 )
 
 func testCatalogs() []catalog.CatalogWithRunbooks {
@@ -366,5 +367,85 @@ func TestSidebar_ViewShowsCollapseIndicator(t *testing.T) {
 	view = m.View()
 	if !strings.Contains(view, "▶") {
 		t.Error("collapsed catalog should show ▶")
+	}
+}
+
+func TestRenderEntry_HoverVsUnselected(t *testing.T) {
+	m := New(testCatalogs(), 20, testutil.TestStyles())
+
+	e := entry{
+		runbook: domain.Runbook{Name: "test-runbook"},
+		catalog: domain.Catalog{Name: "default"},
+	}
+	s := entryStyles{
+		cursor:         lipgloss.NewStyle().Bold(true),
+		hover:          lipgloss.NewStyle().Underline(true),
+		header:         lipgloss.NewStyle(),
+		headerSelected: lipgloss.NewStyle(),
+		selected:       lipgloss.NewStyle().Bold(true),
+		unselected:     lipgloss.NewStyle(),
+	}
+
+	hovered := m.renderEntry(e, s, false, true, false, false)
+	normal := m.renderEntry(e, s, false, false, false, false)
+
+	if hovered == normal {
+		t.Error("hovered entry should be styled differently from unselected entry")
+	}
+}
+
+func TestRenderEntry_SelectedTakesPriority(t *testing.T) {
+	m := New(testCatalogs(), 20, testutil.TestStyles())
+
+	e := entry{
+		runbook: domain.Runbook{Name: "test-runbook"},
+		catalog: domain.Catalog{Name: "default"},
+	}
+	s := entryStyles{
+		cursor:         lipgloss.NewStyle().Bold(true),
+		hover:          lipgloss.NewStyle().Underline(true),
+		header:         lipgloss.NewStyle(),
+		headerSelected: lipgloss.NewStyle(),
+		selected:       lipgloss.NewStyle().Bold(true),
+		unselected:     lipgloss.NewStyle(),
+	}
+
+	// isCursor=true, isHovered=true — selected should win.
+	selectedHovered := m.renderEntry(e, s, true, true, false, false)
+	selectedOnly := m.renderEntry(e, s, true, false, false, false)
+
+	if selectedHovered != selectedOnly {
+		t.Errorf("selected should take priority over hover\nselected+hover: %q\nselected only:  %q", selectedHovered, selectedOnly)
+	}
+}
+
+func TestBuildLines_HoverAppliesCorrectly(t *testing.T) {
+	m := New(testCatalogs(), 20, testutil.TestStyles())
+
+	// Cursor on hello-world (vis index 1), hover on rotate-tls (vis index 2).
+	m.hoverIdx = 2
+
+	vis := m.visible()
+	lines := m.buildLines(vis)
+	if len(lines) < 5 {
+		t.Fatalf("expected at least 5 lines, got %d", len(lines))
+	}
+
+	// Build another version without hover.
+	m2 := New(testCatalogs(), 20, testutil.TestStyles())
+	m2.hoverIdx = -1
+
+	vis2 := m2.visible()
+	lines2 := m2.buildLines(vis2)
+
+	// The hovered entry (rotate-tls, lines[2]) should be different from the
+	// non-hovered version (lines2[2]).
+	if lines[2] == lines2[2] {
+		t.Error("hovered rotate-tls should be styled differently from non-hovered rotate-tls")
+	}
+
+	// The non-hovered entries should be identical.
+	if lines[4] != lines2[4] {
+		t.Error("non-hovered drain-node should be identical in both versions")
 	}
 }

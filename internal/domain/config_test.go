@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -115,5 +117,150 @@ func TestValidateDisplayName(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestCatalogVars_MarshalJSON(t *testing.T) {
+	tests := []struct {
+		name string
+		cv   CatalogVars
+		want map[string]any
+	}{
+		{
+			name: "vars only",
+			cv: CatalogVars{
+				Vars:     map[string]any{"region": "us-east-1", "env": "prod"},
+				Runbooks: nil,
+			},
+			want: map[string]any{"region": "us-east-1", "env": "prod"},
+		},
+		{
+			name: "vars with runbooks",
+			cv: CatalogVars{
+				Vars: map[string]any{"region": "us-east-1"},
+				Runbooks: map[string]map[string]any{
+					"deploy": {"version": "1.0"},
+				},
+			},
+			want: map[string]any{
+				"region": "us-east-1",
+				"runbooks": map[string]any{
+					"deploy": map[string]any{"version": "1.0"},
+				},
+			},
+		},
+		{
+			name: "empty vars no runbooks",
+			cv: CatalogVars{
+				Vars:     map[string]any{},
+				Runbooks: map[string]map[string]any{},
+			},
+			want: map[string]any{},
+		},
+		{
+			name: "nil vars nil runbooks",
+			cv:   CatalogVars{},
+			want: map[string]any{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := json.Marshal(tt.cv)
+			if err != nil {
+				t.Fatalf("MarshalJSON: %v", err)
+			}
+			var got map[string]any
+			if err := json.Unmarshal(data, &got); err != nil {
+				t.Fatalf("Unmarshal result: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCatalogVars_UnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		wantVars     map[string]any
+		wantRunbooks map[string]map[string]any
+		wantErr      bool
+	}{
+		{
+			name:         "flat vars only",
+			input:        `{"region":"us-east-1","env":"prod"}`,
+			wantVars:     map[string]any{"region": "us-east-1", "env": "prod"},
+			wantRunbooks: map[string]map[string]any{},
+		},
+		{
+			name:  "vars with runbooks",
+			input: `{"region":"us-east-1","runbooks":{"deploy":{"version":"1.0"}}}`,
+			wantVars: map[string]any{"region": "us-east-1"},
+			wantRunbooks: map[string]map[string]any{
+				"deploy": {"version": "1.0"},
+			},
+		},
+		{
+			name:         "empty object",
+			input:        `{}`,
+			wantVars:     map[string]any{},
+			wantRunbooks: map[string]map[string]any{},
+		},
+		{
+			name:    "invalid JSON",
+			input:   `not json`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cv CatalogVars
+			err := json.Unmarshal([]byte(tt.input), &cv)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("UnmarshalJSON: %v", err)
+			}
+			if !reflect.DeepEqual(cv.Vars, tt.wantVars) {
+				t.Errorf("Vars = %v, want %v", cv.Vars, tt.wantVars)
+			}
+			if !reflect.DeepEqual(cv.Runbooks, tt.wantRunbooks) {
+				t.Errorf("Runbooks = %v, want %v", cv.Runbooks, tt.wantRunbooks)
+			}
+		})
+	}
+}
+
+func TestCatalogVars_RoundTrip(t *testing.T) {
+	original := CatalogVars{
+		Vars: map[string]any{"key": "value", "count": float64(42)},
+		Runbooks: map[string]map[string]any{
+			"deploy": {"target": "prod"},
+		},
+	}
+
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+
+	var decoded CatalogVars
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if !reflect.DeepEqual(original.Vars, decoded.Vars) {
+		t.Errorf("Vars mismatch after round-trip: got %v, want %v", decoded.Vars, original.Vars)
+	}
+	if !reflect.DeepEqual(original.Runbooks, decoded.Runbooks) {
+		t.Errorf("Runbooks mismatch after round-trip: got %v, want %v", decoded.Runbooks, original.Runbooks)
 	}
 }

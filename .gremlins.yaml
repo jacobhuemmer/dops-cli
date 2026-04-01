@@ -1,0 +1,28 @@
+unleash:
+  diff: ""
+  workers: 0
+  exclude-files:
+    - ".*_generated\\.go$"
+    - "internal/executor/demo_data\\.go$"
+    - "\\.claude/worktrees/.*"
+  threshold:
+    efficacy: 70
+    mutant-coverage: 65
+
+mutants:
+  arithmetic-base:
+    enabled: true
+  conditionals-boundary:
+    enabled: true
+  conditionals-negation:
+    enabled: true
+  increment-decrement:
+    enabled: true
+  invert-negatives:
+    enabled: true
+  invert-logical:
+    enabled: false
+  invert-loopctrl:
+    enabled: false
+  invert-assignments:
+    enabled: false

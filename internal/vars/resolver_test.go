@@ -82,6 +82,57 @@ func TestDefaultVarResolver_EmptyScopes(t *testing.T) {
 	}
 }
 
+func TestToString(t *testing.T) {
+	tests := []struct {
+		name  string
+		input any
+		want  string
+	}{
+		{"string", "hello", "hello"},
+		{"bool true", true, "true"},
+		{"bool false", false, "false"},
+		{"float64 integer", float64(42), "42"},
+		{"float64 decimal", 3.14, "3.14"},
+		{"float64 zero", float64(0), "0"},
+		{"int via default", 99, "99"},
+		{"nil via default", nil, "<nil>"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toString(tt.input)
+			if got != tt.want {
+				t.Errorf("toString(%v) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDefaultVarResolver_FloatValues(t *testing.T) {
+	cfg := &domain.Config{
+		Vars: domain.Vars{
+			Global: map[string]any{
+				"count":   float64(5),
+				"ratio":   3.14,
+			},
+		},
+	}
+
+	params := []domain.Parameter{
+		{Name: "count", Scope: "global"},
+		{Name: "ratio", Scope: "global"},
+	}
+
+	resolver := NewDefaultResolver()
+	result := resolver.Resolve(cfg, "default", "test", params)
+
+	if result["count"] != "5" {
+		t.Errorf("count = %q, want 5", result["count"])
+	}
+	if result["ratio"] != "3.14" {
+		t.Errorf("ratio = %q, want 3.14", result["ratio"])
+	}
+}
+
 func TestDefaultVarResolver_MissingCatalog(t *testing.T) {
 	cfg := &domain.Config{
 		Vars: domain.Vars{
