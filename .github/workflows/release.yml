@@ -27,7 +27,13 @@ jobs:
           node-version: 22
 
       - name: Build web UI
-        run: make web
+        run: |
+          make web
+          if [ -n "$(git status --porcelain internal/web/dist/)" ]; then
+            git add -f internal/web/dist/
+            git -c user.name="github-actions" -c user.email="actions@github.com" commit -m "Build web dist [skip ci]"
+            git tag -f "${{ github.ref_name }}"
+          fi
 
       - uses: sigstore/cosign-installer@v3
 
@@ -37,7 +43,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean --skip=validate
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           COSIGN_YES: "true"
