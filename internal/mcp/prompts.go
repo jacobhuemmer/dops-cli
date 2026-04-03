@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"strings"
 
+	"dops/internal/domain"
+
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -173,6 +175,55 @@ echo "========================================="
 ` + "```" + `
 `
 
+// generateParamVars produces shell variable extraction code from parameters.
+// Returns empty string when params is empty.
+func generateParamVars(params []domain.Parameter, shell string) string {
+	if len(params) == 0 {
+		return ""
+	}
+
+	var lines []string
+	for _, p := range params {
+		name := strings.ToUpper(p.Name)
+		secretComment := ""
+		if p.Secret {
+			secretComment = "  # (secret — value is masked in UI)"
+		}
+
+		switch shell {
+		case "powershell":
+			if p.Required {
+				lines = append(lines, fmt.Sprintf(
+					"$%s = if ($env:%s) { $env:%s } else { throw '%s is required' }%s",
+					p.Name, name, name, p.Name, secretComment))
+			} else {
+				def := ""
+				if p.Default != nil {
+					def = fmt.Sprintf("%v", p.Default)
+				}
+				lines = append(lines, fmt.Sprintf(
+					"$%s = if ($env:%s) { $env:%s } else { \"%s\" }%s",
+					p.Name, name, name, def, secretComment))
+			}
+		default: // bash
+			if p.Required {
+				lines = append(lines, fmt.Sprintf(
+					"%s=\"${%s:?%s is required}\"%s",
+					name, name, p.Name, secretComment))
+			} else if p.Default != nil {
+				lines = append(lines, fmt.Sprintf(
+					"%s=\"${%s:-%v}\"%s",
+					name, name, p.Default, secretComment))
+			} else {
+				lines = append(lines, fmt.Sprintf(
+					"%s=\"${%s:-}\"%s",
+					name, name, secretComment))
+			}
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 // registerPrompts adds MCP prompts for runbook creation.
 func (s *Server) registerPrompts() {
 	s.srv.AddPrompt(
@@ -230,14 +281,38 @@ func (s *Server) registerPrompts() {
 			sb.WriteString(fmt.Sprintf("```yaml\nname: %s\nversion: 1.0.0\ndescription: %s\nrisk_level: %s\nscript: %s\nparameters: []\n```\n\n", name, description, riskLevel, scriptField))
 			sb.WriteString("Fill in the parameters list based on what inputs the script needs.\n\n")
 
+			// Look up parameters from an existing runbook if this catalog/name already exists.
+			var params []domain.Parameter
+			for _, c := range s.catalogs {
+				if c.Catalog.Name == catalog {
+					for _, rb := range c.Runbooks {
+						if rb.Name == name {
+							params = rb.Parameters
+						}
+					}
+				}
+			}
+
 			if runtime.GOOS == "windows" {
 				sb.WriteString("## script.ps1\n\n")
 				sb.WriteString("Use PowerShell Core conventions. Use the template below as a starting point.\n\n")
-				sb.WriteString("```powershell\n$ErrorActionPreference = 'Stop'\n\n# TODO: Add parameter variables\n# $endpoint = if ($env:ENDPOINT) { $env:ENDPOINT } else { throw 'endpoint is required' }\n\nWrite-Output \"==> Running " + name + "\"\n# TODO: Implement\nWrite-Output \"Done\"\n```\n")
+				sb.WriteString("```powershell\n$ErrorActionPreference = 'Stop'\n\n")
+				if vars := generateParamVars(params, "powershell"); vars != "" {
+					sb.WriteString(vars + "\n\n")
+				}
+				sb.WriteString("Write-Output \"==> Running " + name + "\"\n")
+				sb.WriteString("# Add implementation here\n")
+				sb.WriteString("Write-Output \"Done\"\n```\n")
 			} else {
 				sb.WriteString("## script.sh\n\n")
 				sb.WriteString("Follow the Google Shell Style Guide. Use the template below as a starting point.\n\n")
-				sb.WriteString("```sh\n#!/bin/sh\nset -eu\n\n# TODO: Add parameter variables\n# ENDPOINT=\"${ENDPOINT:?endpoint is required}\"\n\nmain() {\n  echo \"==> Running " + name + "\"\n  # TODO: Implement\n  echo \"✓ Done\"\n}\n\nmain \"$@\"\n```\n\n")
+				sb.WriteString("```sh\n#!/bin/sh\nset -eu\n\n")
+				if vars := generateParamVars(params, "bash"); vars != "" {
+					sb.WriteString(vars + "\n\n")
+				}
+				sb.WriteString("main() {\n  echo \"==> Running " + name + "\"\n")
+				sb.WriteString("  # Add implementation here\n")
+				sb.WriteString("  echo \"✓ Done\"\n}\n\nmain \"$@\"\n```\n\n")
 				sb.WriteString("Make the script executable: `chmod +x script.sh`\n")
 			}
 

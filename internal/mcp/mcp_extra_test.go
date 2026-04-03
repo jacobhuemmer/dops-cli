@@ -431,6 +431,99 @@ func TestRunbookToInputSchema_NoRequired(t *testing.T) {
 	}
 }
 
+// --- generateParamVars tests ---
+
+func TestGenerateParamVars_BashRequired(t *testing.T) {
+	params := []domain.Parameter{
+		{Name: "endpoint", Type: domain.ParamString, Required: true},
+	}
+	out := generateParamVars(params, "bash")
+	if !strings.Contains(out, `ENDPOINT="${ENDPOINT:?endpoint is required}"`) {
+		t.Errorf("bash required param incorrect:\n%s", out)
+	}
+}
+
+func TestGenerateParamVars_BashOptionalWithDefault(t *testing.T) {
+	params := []domain.Parameter{
+		{Name: "region", Type: domain.ParamString, Default: "us-east-1"},
+	}
+	out := generateParamVars(params, "bash")
+	if !strings.Contains(out, `REGION="${REGION:-us-east-1}"`) {
+		t.Errorf("bash optional with default incorrect:\n%s", out)
+	}
+}
+
+func TestGenerateParamVars_BashOptionalNoDefault(t *testing.T) {
+	params := []domain.Parameter{
+		{Name: "tag", Type: domain.ParamString},
+	}
+	out := generateParamVars(params, "bash")
+	if !strings.Contains(out, `TAG="${TAG:-}"`) {
+		t.Errorf("bash optional no default incorrect:\n%s", out)
+	}
+}
+
+func TestGenerateParamVars_BashSecretParam(t *testing.T) {
+	params := []domain.Parameter{
+		{Name: "api_key", Type: domain.ParamString, Required: true, Secret: true},
+	}
+	out := generateParamVars(params, "bash")
+	if !strings.Contains(out, "# (secret") {
+		t.Errorf("bash secret param should have comment:\n%s", out)
+	}
+}
+
+func TestGenerateParamVars_PowerShellRequired(t *testing.T) {
+	params := []domain.Parameter{
+		{Name: "endpoint", Type: domain.ParamString, Required: true},
+	}
+	out := generateParamVars(params, "powershell")
+	if !strings.Contains(out, "$env:ENDPOINT") {
+		t.Errorf("powershell required param incorrect:\n%s", out)
+	}
+	if !strings.Contains(out, "throw") {
+		t.Errorf("powershell required param should throw:\n%s", out)
+	}
+}
+
+func TestGenerateParamVars_PowerShellOptional(t *testing.T) {
+	params := []domain.Parameter{
+		{Name: "region", Type: domain.ParamString, Default: "us-east-1"},
+	}
+	out := generateParamVars(params, "powershell")
+	if !strings.Contains(out, `"us-east-1"`) {
+		t.Errorf("powershell optional with default incorrect:\n%s", out)
+	}
+}
+
+func TestGenerateParamVars_NoParams(t *testing.T) {
+	out := generateParamVars(nil, "bash")
+	if out != "" {
+		t.Errorf("no params should produce empty string, got:\n%s", out)
+	}
+}
+
+func TestGenerateParamVars_MixedParams(t *testing.T) {
+	params := []domain.Parameter{
+		{Name: "endpoint", Type: domain.ParamString, Required: true},
+		{Name: "region", Type: domain.ParamString, Default: "us-east-1"},
+		{Name: "token", Type: domain.ParamString, Required: true, Secret: true},
+	}
+	out := generateParamVars(params, "bash")
+	if !strings.Contains(out, "ENDPOINT") {
+		t.Error("missing endpoint var")
+	}
+	if !strings.Contains(out, "REGION") {
+		t.Error("missing region var")
+	}
+	if !strings.Contains(out, "TOKEN") {
+		t.Error("missing token var")
+	}
+	if !strings.Contains(out, "# (secret") {
+		t.Error("missing secret comment")
+	}
+}
+
 // --- collectResult tests ---
 
 func TestCollectResult_TruncatesOutput(t *testing.T) {
