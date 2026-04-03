@@ -185,9 +185,9 @@ func generateParamVars(params []domain.Parameter, shell string) string {
 	var lines []string
 	for _, p := range params {
 		name := strings.ToUpper(p.Name)
-		secretComment := ""
+		maskedHint := ""
 		if p.Secret {
-			secretComment = "  # (secret — value is masked in UI)"
+			maskedHint = "  # (sensitive — value is masked in UI)"
 		}
 
 		switch shell {
@@ -195,7 +195,7 @@ func generateParamVars(params []domain.Parameter, shell string) string {
 			if p.Required {
 				lines = append(lines, fmt.Sprintf(
 					"$%s = if ($env:%s) { $env:%s } else { throw '%s is required' }%s",
-					p.Name, name, name, p.Name, secretComment))
+					p.Name, name, name, p.Name, maskedHint))
 			} else {
 				def := ""
 				if p.Default != nil {
@@ -203,21 +203,21 @@ func generateParamVars(params []domain.Parameter, shell string) string {
 				}
 				lines = append(lines, fmt.Sprintf(
 					"$%s = if ($env:%s) { $env:%s } else { \"%s\" }%s",
-					p.Name, name, name, def, secretComment))
+					p.Name, name, name, def, maskedHint))
 			}
 		default: // bash
 			if p.Required {
 				lines = append(lines, fmt.Sprintf(
 					"%s=\"${%s:?%s is required}\"%s",
-					name, name, p.Name, secretComment))
+					name, name, p.Name, maskedHint))
 			} else if p.Default != nil {
 				lines = append(lines, fmt.Sprintf(
 					"%s=\"${%s:-%v}\"%s",
-					name, name, p.Default, secretComment))
+					name, name, p.Default, maskedHint))
 			} else {
 				lines = append(lines, fmt.Sprintf(
 					"%s=\"${%s:-}\"%s",
-					name, name, secretComment))
+					name, name, maskedHint))
 			}
 		}
 	}
