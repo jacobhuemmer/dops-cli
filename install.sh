@@ -51,4 +51,40 @@ else
 fi
 
 chmod +x "${INSTALL_DIR}/dops"
-echo "dops ${LATEST} installed to ${INSTALL_DIR}/dops"
+
+echo ""
+echo "  dops ${LATEST} installed successfully!"
+echo ""
+
+# Check if install dir is in PATH.
+case ":$PATH:" in
+  *":${INSTALL_DIR}:"*) ;;
+  *)
+    echo "  Add dops to your PATH by adding this to your shell profile:"
+    echo ""
+    SHELL_NAME="$(basename "${SHELL:-/bin/sh}")"
+    case "$SHELL_NAME" in
+      zsh)
+        echo "    echo 'export PATH=\"${INSTALL_DIR}:\$PATH\"' >> ~/.zshrc"
+        echo "    source ~/.zshrc"
+        ;;
+      bash)
+        echo "    echo 'export PATH=\"${INSTALL_DIR}:\$PATH\"' >> ~/.bashrc"
+        echo "    source ~/.bashrc"
+        ;;
+      fish)
+        echo "    fish_add_path ${INSTALL_DIR}"
+        ;;
+      *)
+        echo "    export PATH=\"${INSTALL_DIR}:\$PATH\""
+        ;;
+    esac
+    echo ""
+    ;;
+esac
+
+echo "  Get started:"
+echo ""
+echo "    dops init    # set up ~/.dops with a sample runbook"
+echo "    dops         # launch the TUI"
+echo ""
