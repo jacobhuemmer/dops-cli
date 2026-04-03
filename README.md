@@ -165,7 +165,15 @@ dops is built for DevOps and platform engineering teams who need a consistent, s
 <!-- INSTALLATION -->
 ## Installation
 
-### Homebrew (recommended)
+### Quick install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rundops/dops/main/install.sh | sh
+```
+
+Installs the latest binary to `/usr/local/bin`. Set `DOPS_INSTALL_DIR` to change the location.
+
+### Homebrew
 
 ```bash
 brew tap rundops/tap
