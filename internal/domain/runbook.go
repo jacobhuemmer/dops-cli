@@ -34,13 +34,18 @@ type Parameter struct {
 type Runbook struct {
 	ID          string      `yaml:"id" json:"id"`
 	Name        string      `yaml:"name" json:"name"`
+	Type        string      `yaml:"type,omitempty" json:"type,omitempty"`       // "runbook" (default) or "skill"
 	Aliases     []string    `yaml:"aliases,omitempty" json:"aliases,omitempty"`
 	Description string      `yaml:"description" json:"description"`
+	Trigger     string      `yaml:"trigger,omitempty" json:"trigger,omitempty"` // comma-separated keywords (skills only)
 	Version     string      `yaml:"version" json:"version"`
 	RiskLevel   RiskLevel   `yaml:"risk_level" json:"risk_level"`
 	Script      string      `yaml:"script" json:"script"`
 	Parameters  []Parameter `yaml:"parameters" json:"parameters"`
 }
+
+// IsSkill returns true if this runbook entry is a skill (injectable context).
+func (r Runbook) IsSkill() bool { return r.Type == "skill" }
 
 // validAlias matches lowercase alphanumeric, hyphens, and dots.
 var validAlias = regexp.MustCompile(`^[a-z0-9][a-z0-9.\-]*$`)

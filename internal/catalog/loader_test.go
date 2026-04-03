@@ -307,6 +307,124 @@ aliases:
 	}
 }
 
+const skillYAML = `name: "k8s-scaling-guide"
+type: skill
+description: "Context for AI agents about Kubernetes scaling"
+trigger: "scale, resize, replicas"
+`
+
+func setupSkillFS() *fakeFS {
+	ffs := newFakeFS()
+	ffs.dirs["/catalogs/infra"] = []os.DirEntry{
+		fakeDirEntry{name: "scale-deploy", isDir: true},
+		fakeDirEntry{name: "k8s-guide", isDir: true},
+	}
+	ffs.files["/catalogs/infra/scale-deploy/runbook.yaml"] = []byte(helloWorldYAML)
+	ffs.files["/catalogs/infra/k8s-guide/runbook.yaml"] = []byte(skillYAML)
+	ffs.files["/catalogs/infra/k8s-guide/skill.md"] = []byte("# Kubernetes Scaling\n\nUse scale-deploy to adjust replicas.\n")
+	return ffs
+}
+
+func TestLoader_LoadsSkillsFromDisk(t *testing.T) {
+	ffs := setupSkillFS()
+	loader := NewDiskLoader(ffs)
+
+	catalogs := []domain.Catalog{
+		{Name: "infra", Path: "/catalogs/infra", Active: true, Policy: domain.CatalogPolicy{MaxRiskLevel: domain.RiskCritical}},
+	}
+
+	result, err := loader.LoadAll(catalogs, domain.RiskCritical)
+	if err != nil {
+		t.Fatalf("LoadAll: %v", err)
+	}
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 catalog, got %d", len(result))
+	}
+	if len(result[0].Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(result[0].Skills))
+	}
+
+	sk := result[0].Skills[0]
+	if sk.ID != "infra.k8s-guide" {
+		t.Errorf("skill ID = %q, want infra.k8s-guide", sk.ID)
+	}
+	if sk.Name != "k8s-scaling-guide" {
+		t.Errorf("skill Name = %q", sk.Name)
+	}
+	if sk.Trigger != "scale, resize, replicas" {
+		t.Errorf("skill Trigger = %q", sk.Trigger)
+	}
+	if sk.Catalog != "infra" {
+		t.Errorf("skill Catalog = %q", sk.Catalog)
+	}
+	if sk.Content == "" {
+		t.Error("skill Content should not be empty")
+	}
+}
+
+func TestLoader_SkillsNotInRunbooks(t *testing.T) {
+	ffs := setupSkillFS()
+	loader := NewDiskLoader(ffs)
+
+	catalogs := []domain.Catalog{
+		{Name: "infra", Path: "/catalogs/infra", Active: true, Policy: domain.CatalogPolicy{MaxRiskLevel: domain.RiskCritical}},
+	}
+
+	result, _ := loader.LoadAll(catalogs, domain.RiskCritical)
+
+	for _, rb := range result[0].Runbooks {
+		if rb.IsSkill() {
+			t.Errorf("skill %q should not appear in Runbooks", rb.ID)
+		}
+	}
+	if len(result[0].Runbooks) != 1 {
+		t.Errorf("expected 1 runbook, got %d", len(result[0].Runbooks))
+	}
+}
+
+func TestLoader_SkillWithoutMarkdown_Skipped(t *testing.T) {
+	ffs := newFakeFS()
+	ffs.dirs["/catalogs/infra"] = []os.DirEntry{
+		fakeDirEntry{name: "bad-skill", isDir: true},
+	}
+	ffs.files["/catalogs/infra/bad-skill/runbook.yaml"] = []byte(skillYAML)
+	// No skill.md file
+
+	loader := NewDiskLoader(ffs)
+	catalogs := []domain.Catalog{
+		{Name: "infra", Path: "/catalogs/infra", Active: true, Policy: domain.CatalogPolicy{MaxRiskLevel: domain.RiskCritical}},
+	}
+
+	result, err := loader.LoadAll(catalogs, domain.RiskCritical)
+	if err != nil {
+		t.Fatalf("LoadAll: %v", err)
+	}
+
+	// Catalog may be empty (no runbooks, no valid skills)
+	if len(result) > 0 && len(result[0].Skills) != 0 {
+		t.Errorf("expected 0 skills (missing skill.md), got %d", len(result[0].Skills))
+	}
+}
+
+func TestLoader_MixedRunbooksAndSkills(t *testing.T) {
+	ffs := setupSkillFS()
+	loader := NewDiskLoader(ffs)
+
+	catalogs := []domain.Catalog{
+		{Name: "infra", Path: "/catalogs/infra", Active: true, Policy: domain.CatalogPolicy{MaxRiskLevel: domain.RiskCritical}},
+	}
+
+	result, _ := loader.LoadAll(catalogs, domain.RiskCritical)
+
+	if len(result[0].Runbooks) != 1 {
+		t.Errorf("runbooks = %d, want 1", len(result[0].Runbooks))
+	}
+	if len(result[0].Skills) != 1 {
+		t.Errorf("skills = %d, want 1", len(result[0].Skills))
+	}
+}
+
 func TestRiskFilter(t *testing.T) {
 	tests := []struct {
 		name     string

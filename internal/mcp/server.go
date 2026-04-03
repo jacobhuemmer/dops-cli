@@ -56,8 +56,39 @@ func NewServer(sc ServerConfig) *Server {
 	s.registerResources()
 	s.registerSchemaResources()
 	s.registerPrompts()
+	s.registerSkillPrompts()
 
 	return s
+}
+
+// registerSkillPrompts exposes catalog skills as MCP prompts.
+func (s *Server) registerSkillPrompts() {
+	for _, c := range s.catalogs {
+		for _, sk := range c.Skills {
+			sk := sk // capture
+			desc := sk.Description
+			if sk.Trigger != "" {
+				desc += " [triggers: " + sk.Trigger + "]"
+			}
+			s.srv.AddPrompt(
+				&mcpsdk.Prompt{
+					Name:        sk.ID,
+					Description: desc,
+				},
+				func(ctx context.Context, req *mcpsdk.GetPromptRequest) (*mcpsdk.GetPromptResult, error) {
+					return &mcpsdk.GetPromptResult{
+						Description: sk.Description,
+						Messages: []*mcpsdk.PromptMessage{
+							{
+								Role:    "user",
+								Content: &mcpsdk.TextContent{Text: sk.Content},
+							},
+						},
+					}, nil
+				},
+			)
+		}
+	}
 }
 
 func (s *Server) registerTools(maxRisk domain.RiskLevel) {

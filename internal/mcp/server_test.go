@@ -440,3 +440,141 @@ func TestServer_RunbookDetailResource(t *testing.T) {
 		t.Error("detail should contain runbook ID")
 	}
 }
+
+func catalogsWithSkills() []catalog.CatalogWithRunbooks {
+	return []catalog.CatalogWithRunbooks{
+		{
+			Catalog: domain.Catalog{Name: "infra", Path: filepath.Join(os.TempDir(), "test")},
+			Runbooks: []domain.Runbook{
+				{ID: "infra.deploy", Name: "deploy", Description: "Deploy app", RiskLevel: domain.RiskLow, Script: "script.sh"},
+			},
+			Skills: []domain.Skill{
+				{
+					ID:          "infra.k8s-guide",
+					Name:        "k8s-scaling-guide",
+					Description: "Context for Kubernetes scaling",
+					Trigger:     "scale, resize, replicas",
+					Content:     "# Kubernetes Scaling\n\nUse infra.deploy to scale.\n",
+					Catalog:     "infra",
+				},
+			},
+		},
+	}
+}
+
+func TestServer_SkillsAsPrompts(t *testing.T) {
+	srv := NewServer(ServerConfig{
+		Version:  "test",
+		Catalogs: catalogsWithSkills(),
+		Runner:   &fakeRunner{},
+		Config:   &domain.Config{},
+	})
+
+	ctx := context.Background()
+	t1, t2 := mcpsdk.NewInMemoryTransports()
+	srv.srv.Connect(ctx, t1, nil)
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "1.0"}, nil)
+	session, err := client.Connect(ctx, t2, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+
+	// List prompts — should include the skill prompt.
+	var prompts []*mcpsdk.Prompt
+	for p, err := range session.Prompts(ctx, nil) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		prompts = append(prompts, p)
+	}
+
+	var skillPrompt *mcpsdk.Prompt
+	for _, p := range prompts {
+		if p.Name == "infra.k8s-guide" {
+			skillPrompt = p
+		}
+	}
+	if skillPrompt == nil {
+		t.Fatal("skill prompt infra.k8s-guide not found in ListPrompts")
+	}
+	if !strings.Contains(skillPrompt.Description, "Kubernetes scaling") {
+		t.Errorf("description = %q, should mention Kubernetes scaling", skillPrompt.Description)
+	}
+	if !strings.Contains(skillPrompt.Description, "triggers:") {
+		t.Errorf("description = %q, should include trigger keywords", skillPrompt.Description)
+	}
+}
+
+func TestServer_GetPrompt_ReturnsSkillContent(t *testing.T) {
+	srv := NewServer(ServerConfig{
+		Version:  "test",
+		Catalogs: catalogsWithSkills(),
+		Runner:   &fakeRunner{},
+		Config:   &domain.Config{},
+	})
+
+	ctx := context.Background()
+	t1, t2 := mcpsdk.NewInMemoryTransports()
+	srv.srv.Connect(ctx, t1, nil)
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "1.0"}, nil)
+	session, err := client.Connect(ctx, t2, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+
+	result, err := session.GetPrompt(ctx, &mcpsdk.GetPromptParams{Name: "infra.k8s-guide"})
+	if err != nil {
+		t.Fatalf("GetPrompt: %v", err)
+	}
+
+	if len(result.Messages) == 0 {
+		t.Fatal("expected prompt messages")
+	}
+
+	text := result.Messages[0].Content.(*mcpsdk.TextContent).Text
+	if !strings.Contains(text, "# Kubernetes Scaling") {
+		t.Errorf("content should contain skill.md markdown, got: %s", text)
+	}
+}
+
+func TestServer_SkillsNotInTools(t *testing.T) {
+	srv := NewServer(ServerConfig{
+		Version:  "test",
+		Catalogs: catalogsWithSkills(),
+		Runner:   &fakeRunner{},
+		Config:   &domain.Config{},
+	})
+
+	ctx := context.Background()
+	t1, t2 := mcpsdk.NewInMemoryTransports()
+	srv.srv.Connect(ctx, t1, nil)
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "1.0"}, nil)
+	session, err := client.Connect(ctx, t2, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+
+	var tools []*mcpsdk.Tool
+	for tool, err := range session.Tools(ctx, nil) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		tools = append(tools, tool)
+	}
+
+	for _, tool := range tools {
+		if tool.Name == "infra.k8s-guide" {
+			t.Error("skill should NOT appear as a tool")
+		}
+	}
+	// Should have exactly 1 tool (infra.deploy)
+	if len(tools) != 1 {
+		t.Errorf("expected 1 tool, got %d", len(tools))
+	}
+}
