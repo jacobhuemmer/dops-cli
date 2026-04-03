@@ -7,6 +7,8 @@ enhancements fill gaps in the tool schema and execution experience. One Web
 UI fix removes duplicate status display and modernizes the execution view
 header.
 
+**Manual test plan:** [plans/2026-04-02-v0.11.0-manual-test-plan.md](../plans/2026-04-02-v0.11.0-manual-test-plan.md)
+
 ## Features
 
 ### 1. MCP Tool Schema Defaults
