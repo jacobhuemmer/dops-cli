@@ -57,8 +57,8 @@ function parseTimeInput(raw: string): { from: Date | null; to: Date | null; labe
   // "since <date>"
   const sinceMatch = s.match(/^since\s+(.+)$/);
   if (sinceMatch) {
-    const d = new Date(sinceMatch[1]);
-    if (!isNaN(d.getTime())) return { from: d, to: null, label: raw.trim() };
+    const d = parseDate(sinceMatch[1]);
+    if (d) return { from: d, to: null, label: raw.trim() };
   }
 
   // Relative: "45m", "12 hours", "10d", "2 weeks", "last 5 min"
@@ -79,22 +79,43 @@ function parseTimeInput(raw: string): { from: Date | null; to: Date | null; labe
   // Fixed range: "Apr 1 - Apr 2", "4/1 - 4/2", "2026-04-01 - 2026-04-03"
   const rangeSep = s.match(/^(.+?)\s*[-–]\s*(.+)$/);
   if (rangeSep) {
-    const from = new Date(rangeSep[1]);
-    const to = new Date(rangeSep[2]);
-    if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+    const from = parseDate(rangeSep[1]);
+    const to = parseDate(rangeSep[2]);
+    if (from && to) {
       to.setHours(23, 59, 59, 999);
       return { from, to, label: raw.trim() };
     }
   }
 
   // Single date: "Apr 1", "4/1", "2026-04-01"
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) {
+  const d = parseDate(s);
+  if (d) {
     const to = new Date(d); to.setHours(23, 59, 59, 999);
     return { from: d, to, label: raw.trim() };
   }
 
   return null;
+}
+
+// parseDate handles short dates like "Apr 1", "4/1", "4/1/2026" by
+// adding the current year when needed.
+function parseDate(input: string): Date | null {
+  const s = input.trim();
+  let d = new Date(s);
+
+  // If parsing fails or gives a wildly wrong year, try with current year.
+  if (isNaN(d.getTime()) || d.getFullYear() < 2000) {
+    d = new Date(`${s} ${new Date().getFullYear()}`);
+  }
+  // Try M/D format: "4/1" → "4/1/2026"
+  if (isNaN(d.getTime())) {
+    const slash = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+    if (slash) {
+      d = new Date(`${slash[1]}/${slash[2]}/${new Date().getFullYear()}`);
+    }
+  }
+
+  return isNaN(d.getTime()) ? null : d;
 }
 
 function selectPreset(preset: { label: string; ms: number }) {
@@ -104,8 +125,9 @@ function selectPreset(preset: { label: string; ms: number }) {
   timeInput.value = "";
 }
 
-function applyCustom() {
-  const parsed = parseTimeInput(timeInput.value);
+function applyCustom(override?: string) {
+  const input = override ?? timeInput.value;
+  const parsed = parseTimeInput(input);
   if (parsed) {
     timeRange.value = { from: parsed.from, to: parsed.to };
     timeLabel.value = parsed.label;
@@ -250,7 +272,7 @@ function formatTime(iso: string): string {
                 <button
                   v-for="ex in ['45m', '12 hours', '10d', '2 weeks', 'last month', 'yesterday', 'today']"
                   :key="ex"
-                  @click="timeInput = ex; applyCustom()"
+                  @click="applyCustom(ex)"
                   class="px-2 py-0.5 text-[11px] font-mono bg-bg-element border border-border/50 rounded text-fg-muted hover:text-fg hover:border-border-active cursor-pointer transition-colors duration-100"
                 >{{ ex }}</button>
               </div>
@@ -260,7 +282,7 @@ function formatTime(iso: string): string {
                 <button
                   v-for="ex in ['Apr 1', 'Apr 1 - Apr 2', '4/1', '4/1 - 4/2']"
                   :key="ex"
-                  @click="timeInput = ex; applyCustom()"
+                  @click="applyCustom(ex)"
                   class="px-2 py-0.5 text-[11px] font-mono bg-bg-element border border-border/50 rounded text-fg-muted hover:text-fg hover:border-border-active cursor-pointer transition-colors duration-100"
                 >{{ ex }}</button>
               </div>
@@ -270,7 +292,7 @@ function formatTime(iso: string): string {
                 <button
                   v-for="ex in ['since 4/1', 'since yesterday']"
                   :key="ex"
-                  @click="timeInput = ex; applyCustom()"
+                  @click="applyCustom(ex)"
                   class="px-2 py-0.5 text-[11px] font-mono bg-bg-element border border-border/50 rounded text-fg-muted hover:text-fg hover:border-border-active cursor-pointer transition-colors duration-100"
                 >{{ ex }}</button>
               </div>
