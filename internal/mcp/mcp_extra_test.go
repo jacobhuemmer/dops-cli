@@ -472,7 +472,7 @@ func TestGenerateParamVars_BashSecretParam(t *testing.T) {
 		{Name: "api_key", Type: domain.ParamString, Required: true, Secret: true},
 	}
 	out := generateParamVars(params, "bash")
-	if !strings.Contains(out, "# (secret") {
+	if !strings.Contains(out, "# (sensitive") {
 		t.Errorf("bash secret param should have comment:\n%s", out)
 	}
 }
@@ -523,7 +523,7 @@ func TestGenerateParamVars_MixedParams(t *testing.T) {
 	if !strings.Contains(out, "TOKEN") {
 		t.Error("missing token var")
 	}
-	if !strings.Contains(out, "# (secret") {
+	if !strings.Contains(out, "# (sensitive") {
 		t.Error("missing secret comment")
 	}
 }
