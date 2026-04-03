@@ -15,6 +15,7 @@ import (
 type CatalogWithRunbooks struct {
 	Catalog  domain.Catalog
 	Runbooks []domain.Runbook
+	Skills   []domain.Skill
 }
 
 type CatalogLoader interface {
@@ -56,15 +57,16 @@ func (l *DiskCatalogLoader) LoadAll(catalogs []domain.Catalog, defaultRisk domai
 			ceiling = defaultRisk
 		}
 
-		runbooks, err := l.loadCatalog(cat.Name, adapters.ExpandHome(cat.RunbookRoot()), ceiling)
+		runbooks, skills, err := l.loadCatalog(cat.Name, adapters.ExpandHome(cat.RunbookRoot()), ceiling)
 		if err != nil {
 			return nil, fmt.Errorf("load catalog %q: %w", cat.Name, err)
 		}
 
-		if len(runbooks) > 0 {
+		if len(runbooks) > 0 || len(skills) > 0 {
 			result = append(result, CatalogWithRunbooks{
 				Catalog:  cat,
 				Runbooks: runbooks,
+				Skills:   skills,
 			})
 		}
 	}
@@ -135,13 +137,14 @@ func (l *DiskCatalogLoader) FindByAlias(alias string) (*domain.Runbook, *domain.
 		&l.loaded[entry.catalogIdx].Catalog, nil
 }
 
-func (l *DiskCatalogLoader) loadCatalog(catalogName, catalogPath string, ceiling domain.RiskLevel) ([]domain.Runbook, error) {
+func (l *DiskCatalogLoader) loadCatalog(catalogName, catalogPath string, ceiling domain.RiskLevel) ([]domain.Runbook, []domain.Skill, error) {
 	entries, err := l.fs.ReadDir(catalogPath)
 	if err != nil {
-		return nil, fmt.Errorf("read catalog dir: %w", err)
+		return nil, nil, fmt.Errorf("read catalog dir: %w", err)
 	}
 
 	var runbooks []domain.Runbook
+	var skills []domain.Skill
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -151,11 +154,7 @@ func (l *DiskCatalogLoader) loadCatalog(catalogName, catalogPath string, ceiling
 		rbPath := filepath.Join(catalogPath, entry.Name(), "runbook.yaml")
 		rb, err := l.loadRunbook(rbPath)
 		if err != nil {
-			return nil, fmt.Errorf("load runbook %q: %w", entry.Name(), err)
-		}
-
-		if rb.RiskLevel.Exceeds(ceiling) {
-			continue
+			return nil, nil, fmt.Errorf("load runbook %q: %w", entry.Name(), err)
 		}
 
 		// Generate ID as catalog.runbook if not set in YAML.
@@ -163,10 +162,33 @@ func (l *DiskCatalogLoader) loadCatalog(catalogName, catalogPath string, ceiling
 			rb.ID = catalogName + "." + entry.Name()
 		}
 
+		// Skills: read skill.md, skip adding to runbooks.
+		if rb.IsSkill() {
+			skillPath := filepath.Join(catalogPath, entry.Name(), "skill.md")
+			content, err := l.fs.ReadFile(skillPath)
+			if err != nil {
+				log.Printf("warning: skill %q missing skill.md, skipping", rb.ID)
+				continue
+			}
+			skills = append(skills, domain.Skill{
+				ID:          rb.ID,
+				Name:        rb.Name,
+				Description: rb.Description,
+				Trigger:     rb.Trigger,
+				Content:     string(content),
+				Catalog:     catalogName,
+			})
+			continue
+		}
+
+		if rb.RiskLevel.Exceeds(ceiling) {
+			continue
+		}
+
 		runbooks = append(runbooks, *rb)
 	}
 
-	return runbooks, nil
+	return runbooks, skills, nil
 }
 
 func (l *DiskCatalogLoader) loadRunbook(path string) (*domain.Runbook, error) {

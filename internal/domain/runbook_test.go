@@ -67,3 +67,24 @@ func TestValidateRunbookID(t *testing.T) {
 		})
 	}
 }
+
+func TestRunbook_IsSkill_DefaultIsFalse(t *testing.T) {
+	rb := Runbook{Name: "deploy"}
+	if rb.IsSkill() {
+		t.Error("empty Type should not be a skill")
+	}
+}
+
+func TestRunbook_IsSkill_ExplicitRunbook(t *testing.T) {
+	rb := Runbook{Name: "deploy", Type: "runbook"}
+	if rb.IsSkill() {
+		t.Error("type=runbook should not be a skill")
+	}
+}
+
+func TestRunbook_IsSkill_TypeSkill(t *testing.T) {
+	rb := Runbook{Name: "k8s-guide", Type: "skill"}
+	if !rb.IsSkill() {
+		t.Error("type=skill should be a skill")
+	}
+}
