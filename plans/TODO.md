@@ -10,7 +10,7 @@
 - [x] MCP create-runbook prompt scaffolding (dynamic parameter templates)
 - [x] Catalog switcher tab bar (TUI + Web UI)
 - [x] MCP skills — injectable context for AI agents (skill.md + MCP prompts)
-- [ ] Web UI: execution view — remove duplicate status, modernize header
+- [x] Web UI: execution view — remove duplicate status, modernize header
 
 ## Completed
 
