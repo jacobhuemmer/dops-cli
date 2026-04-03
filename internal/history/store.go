@@ -87,7 +87,11 @@ func (s *FileExecutionStore) persistLog(record *domain.ExecutionRecord) {
 		return
 	}
 
-	destPath := filepath.Join(logsDir, record.ID+".log")
+	execDir := filepath.Join(logsDir, record.ID)
+	if err := os.MkdirAll(execDir, 0o755); err != nil {
+		return
+	}
+	destPath := filepath.Join(execDir, record.StartTime.Format("2006-01-02T15-04-05")+".log")
 
 	if err := copyFile(record.LogPath, destPath); err != nil {
 		return // best-effort — keep original path
@@ -252,7 +256,7 @@ func (s *FileExecutionStore) enforceRetention() {
 	for i := 0; i < excess; i++ {
 		rec, err := s.loadRecord(files[i])
 		if err == nil && rec.LogPath != "" && strings.HasPrefix(rec.LogPath, s.dir) {
-			_ = os.Remove(rec.LogPath)
+			_ = os.RemoveAll(filepath.Dir(rec.LogPath)) // remove UUID directory + log
 		}
 		_ = os.Remove(filepath.Join(s.dir, files[i]))
 	}
