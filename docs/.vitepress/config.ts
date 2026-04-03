@@ -9,6 +9,18 @@ export default defineConfig({
     ["link", { rel: "icon", type: "image/x-icon", href: "/favicon.ico" }],
     ["link", { rel: "icon", type: "image/png", sizes: "180x180", href: "/favicon.png" }],
     ["link", { rel: "apple-touch-icon", sizes: "180x180", href: "/favicon.png" }],
+    // Open Graph
+    ["meta", { property: "og:type", content: "website" }],
+    ["meta", { property: "og:title", content: "dops — a runbook toolkit for operators and AI agents" }],
+    ["meta", { property: "og:description", content: "Browse, parameterize, and execute runbooks from the terminal, browser, CLI, or AI agents via MCP. Encrypted credentials, risk controls, execution history." }],
+    ["meta", { property: "og:image", content: "https://rundops.dev/og-image.png" }],
+    ["meta", { property: "og:url", content: "https://rundops.dev" }],
+    ["meta", { property: "og:site_name", content: "dops" }],
+    // Twitter Card
+    ["meta", { name: "twitter:card", content: "summary_large_image" }],
+    ["meta", { name: "twitter:title", content: "dops — a runbook toolkit for operators and AI agents" }],
+    ["meta", { name: "twitter:description", content: "Browse, parameterize, and execute runbooks from the terminal, browser, CLI, or AI agents via MCP." }],
+    ["meta", { name: "twitter:image", content: "https://rundops.dev/og-image.png" }],
   ],
 
   appearance: "dark",
