@@ -33,19 +33,19 @@ to the next.
 
 ### Phase 1: Domain + Store (3 files)
 
-- [ ] **1.1** Create `internal/domain/execution.go` — `ExecutionRecord` struct
+- [x] **1.1** Create `internal/domain/execution.go` — `ExecutionRecord` struct
   ```
   Fields: ID, RunbookID, RunbookName, CatalogName, Parameters (map, secrets masked),
   Status (running/success/failed/cancelled), ExitCode, StartTime, EndTime,
   Duration, OutputLines, OutputSummary, LogPath, Interface (tui/cli/web/mcp)
   ```
 
-- [ ] **1.2** Create `internal/domain/execution_test.go` — test `ExecutionRecord` helpers
+- [x] **1.2** Create `internal/domain/execution_test.go` — test `ExecutionRecord` helpers
   - Test `NewExecutionRecord()` sets ID, StartTime, Status=running
   - Test `Complete()` sets EndTime, Duration, Status
   - Test `MaskSecrets()` replaces secret param values with `"****"`
 
-- [ ] **1.3** Create `internal/history/store.go` — `FileExecutionStore`
+- [x] **1.3** Create `internal/history/store.go` — `FileExecutionStore`
   ```
   Interface: ExecutionStore {
     Record(record *ExecutionRecord) error
@@ -59,7 +59,7 @@ to the next.
   - List reads directory, parses filenames for sorting, loads matching records
   - Enforces retention (delete oldest when count > max)
 
-- [ ] **1.4** Create `internal/history/store_test.go` — test FileExecutionStore
+- [x] **1.4** Create `internal/history/store_test.go` — test FileExecutionStore
   - Test Record + Get roundtrip
   - Test List returns records sorted by time (newest first)
   - Test List with RunbookID filter
